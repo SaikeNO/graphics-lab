@@ -54,7 +54,7 @@ const Task1Primitives = () => {
         type: currentShape,
         color: currentColor,
         lineWidth: currentLineWidth,
-        points: drawingPoints as any,
+        points: drawingPoints as [Point, Point],
         selected: false,
         id: "temp",
       };
@@ -239,7 +239,7 @@ const Task1Primitives = () => {
           if (shape.id === draggedShape) {
             return {
               ...shape,
-              points: shape.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) as any,
+              points: shape.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) as [Point, Point],
             };
           }
           return shape;
@@ -253,7 +253,7 @@ const Task1Primitives = () => {
           if (shape.id === draggedShape) {
             const newPoints = [...shape.points];
             newPoints[draggedHandle] = point;
-            return { ...shape, points: newPoints as any };
+            return { ...shape, points: newPoints as [Point, Point] };
           }
           return shape;
         })
@@ -261,14 +261,14 @@ const Task1Primitives = () => {
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = () => {
     if (currentTool === "draw" && isDrawing && drawingPoints.length === 2) {
       const newShape: AnyShape = {
         id: Date.now().toString(),
         type: currentShape,
         color: currentColor,
         lineWidth: currentLineWidth,
-        points: drawingPoints as any,
+        points: drawingPoints as [Point, Point],
         selected: false,
       };
       setShapes([...shapes, newShape]);
@@ -300,7 +300,7 @@ const Task1Primitives = () => {
       points: [
         { x: x1, y: y1 },
         { x: x2, y: y2 },
-      ] as any,
+      ] as [Point, Point],
       selected: false,
     };
 
@@ -332,7 +332,7 @@ const Task1Primitives = () => {
             points: [
               { x: x1, y: y1 },
               { x: x2, y: y2 },
-            ] as any,
+            ] as [Point, Point],
           };
         }
         return shape;

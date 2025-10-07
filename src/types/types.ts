@@ -10,23 +10,20 @@ export interface Shape {
   type: ShapeType;
   color: string;
   lineWidth: number;
-  points: Point[];
+  points: [Point, Point];
   selected: boolean;
 }
 
 export interface LineShape extends Shape {
   type: "line";
-  points: [Point, Point];
 }
 
 export interface RectangleShape extends Shape {
   type: "rectangle";
-  points: [Point, Point];
 }
 
 export interface CircleShape extends Shape {
   type: "circle";
-  points: [Point, Point];
 }
 
 export type AnyShape = LineShape | RectangleShape | CircleShape;
