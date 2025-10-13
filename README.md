@@ -2,6 +2,8 @@
 
 Aplikacja webowa do prostych operacji graficznych, stworzona przy użyciu React, TypeScript i Vite. Umożliwia rysowanie prymitywów oraz wczytywanie, wyświetlanie i zapisywanie obrazów w formacie PPM.
 
+![Ekran główny](assets/home.png)
+
 ## Funkcjonalności
 
 Aplikacja podzielona jest na dwa główne moduły (zadania):
@@ -40,17 +42,27 @@ Moduł ten służy do pracy z obrazami w formacie PPM (Portable Pixmap).
 
 ## Instalacja i uruchomienie
 
-1.  Sklonuj repozytorium na swój komputer.
-2.  Przejdź do głównego katalogu projektu.
-3.  Zainstaluj zależności za pomocą menedżera pakietów:
+### Kroki instalacji
+
+1.  **Sklonuj repozytorium:**
+
+    ```bash
+    git clone [https://github.com/SaikeNO/graphics-lab.git](https://github.com/SaikeNO/graphics-lab.git)
+    cd graphics-lab
+    ```
+
+2.  **Zainstaluj zależności:**
+
     ```bash
     npm install
     ```
-4.  Uruchom serwer deweloperski:
+
+3.  Uruchom serwer deweloperski:
     ```bash
     npm run dev
     ```
-5.  Aplikacja będzie dostępna pod adresem `http://localhost:5173`.
+
+Aplikacja będzie dostępna pod adresem [http://localhost:5173](http://localhost:5173).
 
 ## Dostępne skrypty
 
