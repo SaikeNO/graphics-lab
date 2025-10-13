@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# GraphicsLab - Laboratorium Grafiki Komputerowej
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplikacja webowa do prostych operacji graficznych, stworzona przy użyciu React, TypeScript i Vite. Umożliwia rysowanie prymitywów oraz wczytywanie, wyświetlanie i zapisywanie obrazów w formacie PPM.
 
-Currently, two official plugins are available:
+## Funkcjonalności
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Aplikacja podzielona jest na dwa główne moduły (zadania):
 
-## React Compiler
+### Zadanie 1: Prymitywy
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+Moduł ten umożliwia tworzenie i manipulowanie prostymi kształtami geometrycznymi na kanwie.
 
-## Expanding the ESLint configuration
+- **Rysowanie:** Możliwość rysowania linii, prostokątów i okręgów.
+- **Narzędzia:** Dostępne narzędzia to rysowanie, zaznaczanie, przesuwanie i zmiana rozmiaru.
+- **Personalizacja:** Użytkownik może wybrać kolor i grubość linii dla każdego kształtu.
+- **Precyzja:** Kształty można dodawać i modyfikować zarówno poprzez interakcję z kanwą, jak i przez wprowadzanie dokładnych współrzędnych.
+- **Zarządzanie:**
+  - Zapisywanie stanu kanwy (wszystkich kształtów) do pliku JSON.
+  - Wczytywanie kształtów z pliku JSON.
+  - Całkowite czyszczenie kanwy.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Zadanie 2: Format PPM
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Moduł ten służy do pracy z obrazami w formacie PPM (Portable Pixmap).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Wczytywanie:** Obsługa wczytywania obrazów w formatach PPM (zarówno P3 - ASCII, jak i P6 - binarny) oraz JPEG.
+- **Wyświetlanie:** Podgląd wczytanego obrazu na kanwie.
+- **Informacje:** Wyświetlanie podstawowych informacji o obrazie (format, wymiary, maksymalna wartość koloru).
+- **Zapisywanie:**
+  - Eksport obrazu do formatu PPM (P6).
+  - Eksport obrazu do formatu JPEG z możliwością regulacji jakości.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Technologie
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **Framework:** [React](https://react.dev/)
+- **Język:** [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool:** [Vite](https://vitejs.dev/)
+- **Stylowanie:** [Tailwind CSS](https://tailwindcss.com/)
+- **Ikony:** [Lucide React](https://lucide.dev/guide/packages/lucide-react)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Instalacja i uruchomienie
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1.  Sklonuj repozytorium na swój komputer.
+2.  Przejdź do głównego katalogu projektu.
+3.  Zainstaluj zależności za pomocą menedżera pakietów:
+    ```bash
+    npm install
+    ```
+4.  Uruchom serwer deweloperski:
+    ```bash
+    npm run dev
+    ```
+5.  Aplikacja będzie dostępna pod adresem `http://localhost:5173`.
+
+## Dostępne skrypty
+
+- `npm run dev`: Uruchamia aplikację w trybie deweloperskim.
+- `npm run build`: Kompiluje i buduje aplikację do wersji produkcyjnej.
+- `npm run lint`: Uruchamia lintera w celu sprawdzenia jakości kodu.
+- `npm run preview`: Uruchamia lokalny serwer do podglądu wersji produkcyjnej.
