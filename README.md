@@ -47,7 +47,7 @@ Moduł ten służy do pracy z obrazami w formacie PPM (Portable Pixmap).
 1.  **Sklonuj repozytorium:**
 
     ```bash
-    git clone [https://github.com/SaikeNO/graphics-lab.git](https://github.com/SaikeNO/graphics-lab.git)
+    git clone 'https://github.com/SaikeNO/graphics-lab.git'
     cd graphics-lab
     ```
 
