@@ -17,7 +17,6 @@ const Task1Primitives = () => {
   const [draggedHandle, setDraggedHandle] = useState<number | null>(null);
   const [dragStart, setDragStart] = useState<Point | null>(null);
 
-  // Parametry z formularza
   const [formParams, setFormParams] = useState({
     x1: "",
     y1: "",
@@ -27,7 +26,6 @@ const Task1Primitives = () => {
 
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
 
-  // Rysowanie na canvasie
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -35,20 +33,16 @@ const Task1Primitives = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Czyszczenie canvasu
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Rysowanie wszystkich kształtów
     shapes.forEach((shape) => {
       drawShape(ctx, shape);
 
-      // Rysowanie punktów chwytów dla zaznaczonych obiektów
       if (shape.selected && (currentTool === "resize" || currentTool === "select")) {
         drawHandles(ctx, shape);
       }
     });
 
-    // Rysowanie kształtu w trakcie tworzenia
     if (isDrawing && drawingPoints.length > 0) {
       const tempShape: Partial<AnyShape> = {
         type: currentShape,
@@ -137,32 +131,21 @@ const Task1Primitives = () => {
 
     switch (shape.type) {
       case "line":
-        return isPointNearLine(point, shape.points[0], shape.points[1], tolerance);
+        return isPointNearLine(point, shape, tolerance);
 
       case "rectangle": {
-        const x = Math.min(shape.points[0].x, shape.points[1].x);
-        const y = Math.min(shape.points[0].y, shape.points[1].y);
-        const width = Math.abs(shape.points[1].x - shape.points[0].x);
-        const height = Math.abs(shape.points[1].y - shape.points[0].y);
-        return (
-          point.x >= x - tolerance &&
-          point.x <= x + width + tolerance &&
-          point.y >= y - tolerance &&
-          point.y <= y + height + tolerance
-        );
+        return isPointNearRectangle(point, shape, tolerance);
       }
 
       case "circle": {
-        const radius = Math.sqrt(
-          Math.pow(shape.points[1].x - shape.points[0].x, 2) + Math.pow(shape.points[1].y - shape.points[0].y, 2)
-        );
-        const dist = Math.sqrt(Math.pow(point.x - shape.points[0].x, 2) + Math.pow(point.y - shape.points[0].y, 2));
-        return Math.abs(dist - radius) <= tolerance;
+        return isPointNearCircle(point, shape, tolerance);
       }
     }
   };
 
-  const isPointNearLine = (point: Point, start: Point, end: Point, tolerance: number): boolean => {
+  const isPointNearLine = (point: Point, shape: AnyShape, tolerance: number): boolean => {
+    const start = shape.points[0];
+    const end = shape.points[1];
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -175,6 +158,27 @@ const Task1Primitives = () => {
     const distance = Math.sqrt(Math.pow(point.x - projX, 2) + Math.pow(point.y - projY, 2));
 
     return distance <= tolerance;
+  };
+
+  const isPointNearRectangle = (point: Point, shape: AnyShape, tolerance: number): boolean => {
+    const x = Math.min(shape.points[0].x, shape.points[1].x);
+    const y = Math.min(shape.points[0].y, shape.points[1].y);
+    const width = Math.abs(shape.points[1].x - shape.points[0].x);
+    const height = Math.abs(shape.points[1].y - shape.points[0].y);
+    return (
+      point.x >= x - tolerance &&
+      point.x <= x + width + tolerance &&
+      point.y >= y - tolerance &&
+      point.y <= y + height + tolerance
+    );
+  };
+
+  const isPointNearCircle = (point: Point, shape: AnyShape, tolerance: number): boolean => {
+    const radius = Math.sqrt(
+      Math.pow(shape.points[1].x - shape.points[0].x, 2) + Math.pow(shape.points[1].y - shape.points[0].y, 2)
+    );
+    const dist = Math.sqrt(Math.pow(point.x - shape.points[0].x, 2) + Math.pow(point.y - shape.points[0].y, 2));
+    return Math.abs(dist - radius) <= tolerance;
   };
 
   const findHandleAtPoint = (shape: AnyShape, point: Point): number | null => {
