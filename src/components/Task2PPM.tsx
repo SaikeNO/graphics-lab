@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import type { PPMImage } from "../types/types";
 import { Download, Upload } from "lucide-react";
 import { parsePPM } from "../utils/parsePPM";
-import { savePPM } from "../utils/savePPM";
 
 const Task2PPM = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -112,15 +111,6 @@ const Task2PPM = () => {
     );
   };
 
-  const handleSavePPM = () => {
-    if (!ppmImage) {
-      alert("Najpierw wczytaj obraz");
-      return;
-    }
-
-    savePPM(ppmImage);
-  };
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -171,17 +161,8 @@ const Task2PPM = () => {
                   onChange={(e) => setJpegQuality(parseInt(e.target.value))}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-600 mt-2">Wyższa wartość = lepsza jakość, większy plik</p>
-              </div>
+                <p className="text-xs text-gray-600 mt-2 mb-4">Wyższa wartość = lepsza jakość, większy plik</p>
 
-              <div className="bg-white p-4 rounded-lg shadow space-y-2">
-                <button
-                  onClick={handleSavePPM}
-                  className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                  <Download size={16} />
-                  Zapisz jako PPM
-                </button>
                 <button
                   onClick={handleSaveJPEG}
                   className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"

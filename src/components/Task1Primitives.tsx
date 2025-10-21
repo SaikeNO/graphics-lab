@@ -537,14 +537,14 @@ const Task1Primitives = () => {
         </div>
 
         <div className="lg:col-span-3">
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-white p-4 rounded-lg shadow sticky top-10">
             <div className="mb-4">
               <h3 className="font-semibold text-gray-700">Kanwa</h3>
               <p className="text-sm text-gray-600">Obiektów: {shapes.length}</p>
             </div>
             <canvas
               ref={canvasRef}
-              width={900}
+              width={880}
               height={600}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
