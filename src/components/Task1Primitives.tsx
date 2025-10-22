@@ -116,7 +116,7 @@ const Task1Primitives = () => {
   };
 
   const findShapeAtPoint = (point: Point): AnyShape | null => {
-    // Szukamy od końca (najnowsze na wierzchu)
+    // od końca bo najnowszy na wierzchu
     for (let i = shapes.length - 1; i >= 0; i--) {
       const shape = shapes[i];
       if (isPointOnShape(point, shape)) {
