@@ -1,7 +1,8 @@
-import { ImageIcon, Shapes } from "lucide-react";
+import { ImageIcon, Palette, Shapes } from "lucide-react";
 import Task1Primitives from "./components/Task1Primitives";
 import Task2PPM from "./components/Task2PPM";
 import { useState } from "react";
+import Task3ColorSpaces from "./components/Task3ColorSpaces";
 
 const App = () => {
   const [activeTask, setActiveTask] = useState<number>(1);
@@ -9,6 +10,7 @@ const App = () => {
   const tasks = [
     { id: 1, name: "Zadanie 1: Prymitywy", icon: Shapes },
     { id: 2, name: "Zadanie 2: Format PPM", icon: ImageIcon },
+    { id: 3, name: "Zadanie 3: Przestrzenie Barw", icon: Palette },
   ];
 
   return (
@@ -39,6 +41,7 @@ const App = () => {
       <div className="max-w-7xl mx-auto px-6 py-6">
         {activeTask === 1 && <Task1Primitives />}
         {activeTask === 2 && <Task2PPM />}
+        {activeTask === 3 && <Task3ColorSpaces />}
       </div>
     </div>
   );
