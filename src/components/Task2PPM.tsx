@@ -12,10 +12,10 @@ const Task2PPM = () => {
   const [jpegQuality, setJpegQuality] = useState(90);
 
   // Parametry przekształceń punktowych
-  const [addValue, setAddValue] = useState(0);
-  const [subtractValue, setSubtractValue] = useState(0);
-  const [multiplyValue, setMultiplyValue] = useState(1);
-  const [divideValue, setDivideValue] = useState(1);
+  const [addColor, setAddColor] = useState({ r: 0, g: 0, b: 0 });
+  const [subtractColor, setSubtractColor] = useState({ r: 0, g: 0, b: 0 });
+  const [multiplyColor, setMultiplyColor] = useState({ r: 1, g: 1, b: 1 });
+  const [divideColor, setDivideColor] = useState({ r: 1, g: 1, b: 1 });
   const [brightnessValue, setBrightnessValue] = useState(0);
 
   // Parametry filtrów
@@ -135,27 +135,29 @@ const Task2PPM = () => {
   };
 
   // Przekształcenia punktowe
-  const applyPointTransform = (operation: string, value: number) => {
+  const applyPointTransform = (operation: string, value: number, rgbValues: { r: number; g: number; b: number }) => {
     if (!currentImage) return;
 
     const newPixels = new Uint8ClampedArray(currentImage.pixels);
 
     for (let i = 0; i < newPixels.length; i += 4) {
+      const colorValues = [rgbValues.r, rgbValues.g, rgbValues.b];
       for (let c = 0; c < 3; c++) {
         let pixel = newPixels[i + c];
+        const colorValue = colorValues[c];
 
         switch (operation) {
           case "add":
-            pixel = Math.min(255, pixel + value);
+            pixel = Math.min(255, pixel + colorValue);
             break;
           case "subtract":
-            pixel = Math.max(0, pixel - value);
+            pixel = Math.max(0, pixel - colorValue);
             break;
           case "multiply":
-            pixel = Math.min(255, pixel * value);
+            pixel = Math.min(255, pixel * colorValue);
             break;
           case "divide":
-            pixel = value !== 0 ? Math.min(255, pixel / value) : 0;
+            pixel = colorValue !== 0 ? Math.min(255, pixel / colorValue) : 0;
             break;
           case "brightness":
             pixel = Math.min(255, Math.max(0, pixel + value));
@@ -426,15 +428,47 @@ const Task2PPM = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Dodawanie</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={addValue}
-                        onChange={(e) => setAddValue(Number(e.target.value))}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                      />
+                    <div className="flex gap-2 mb-1">
+                      <div className="flex-1 flex gap-1">
+                        <input
+                          type="number"
+                          value={addColor.r}
+                          onChange={(e) =>
+                            setAddColor((prev) => ({
+                              ...prev,
+                              r: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="R"
+                        />
+                        <input
+                          type="number"
+                          value={addColor.g}
+                          onChange={(e) =>
+                            setAddColor((prev) => ({
+                              ...prev,
+                              g: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="G"
+                        />
+                        <input
+                          type="number"
+                          value={addColor.b}
+                          onChange={(e) =>
+                            setAddColor((prev) => ({
+                              ...prev,
+                              b: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="B"
+                        />
+                      </div>
                       <button
-                        onClick={() => applyPointTransform("add", addValue)}
+                        onClick={() => applyPointTransform("add", 0, addColor)}
                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
                         +
@@ -444,15 +478,47 @@ const Task2PPM = () => {
 
                   <div>
                     <label className="text-xs font-medium text-gray-600">Odejmowanie</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={subtractValue}
-                        onChange={(e) => setSubtractValue(Number(e.target.value))}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                      />
+                    <div className="flex gap-2 mb-1">
+                      <div className="flex-1 flex gap-1">
+                        <input
+                          type="number"
+                          value={subtractColor.r}
+                          onChange={(e) =>
+                            setSubtractColor((prev) => ({
+                              ...prev,
+                              r: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="R"
+                        />
+                        <input
+                          type="number"
+                          value={subtractColor.g}
+                          onChange={(e) =>
+                            setSubtractColor((prev) => ({
+                              ...prev,
+                              g: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="G"
+                        />
+                        <input
+                          type="number"
+                          value={subtractColor.b}
+                          onChange={(e) =>
+                            setSubtractColor((prev) => ({
+                              ...prev,
+                              b: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="B"
+                        />
+                      </div>
                       <button
-                        onClick={() => applyPointTransform("subtract", subtractValue)}
+                        onClick={() => applyPointTransform("subtract", 0, subtractColor)}
                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
                         -
@@ -462,35 +528,103 @@ const Task2PPM = () => {
 
                   <div>
                     <label className="text-xs font-medium text-gray-600">Mnożenie</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={multiplyValue}
-                        onChange={(e) => setMultiplyValue(Number(e.target.value))}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                      />
+                    <div className="flex gap-2 mb-1">
+                      <div className="flex-1 flex gap-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={multiplyColor.r}
+                          onChange={(e) =>
+                            setMultiplyColor((prev) => ({
+                              ...prev,
+                              r: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="R"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={multiplyColor.g}
+                          onChange={(e) =>
+                            setMultiplyColor((prev) => ({
+                              ...prev,
+                              g: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="G"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={multiplyColor.b}
+                          onChange={(e) =>
+                            setMultiplyColor((prev) => ({
+                              ...prev,
+                              b: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="B"
+                        />
+                      </div>
                       <button
-                        onClick={() => applyPointTransform("multiply", multiplyValue)}
+                        onClick={() => applyPointTransform("multiply", 0, multiplyColor)}
                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
-                        ×
+                        x
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <label className="text-xs font-medium text-gray-600">Dzielenie</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={divideValue}
-                        onChange={(e) => setDivideValue(Number(e.target.value))}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                      />
+                    <div className="flex gap-2 mb-1">
+                      <div className="flex-1 flex gap-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={divideColor.r}
+                          onChange={(e) =>
+                            setDivideColor((prev) => ({
+                              ...prev,
+                              r: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="R"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={divideColor.g}
+                          onChange={(e) =>
+                            setDivideColor((prev) => ({
+                              ...prev,
+                              g: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="G"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={divideColor.b}
+                          onChange={(e) =>
+                            setDivideColor((prev) => ({
+                              ...prev,
+                              b: Number(e.target.value),
+                            }))
+                          }
+                          className="w-full px-2 py-1 border rounded text-sm"
+                          placeholder="B"
+                        />
+                      </div>
                       <button
-                        onClick={() => applyPointTransform("divide", divideValue)}
+                        onClick={() => applyPointTransform("divide", 0, divideColor)}
                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
                         ÷
@@ -508,7 +642,13 @@ const Task2PPM = () => {
                         className="flex-1 px-2 py-1 border rounded text-sm"
                       />
                       <button
-                        onClick={() => applyPointTransform("brightness", brightnessValue)}
+                        onClick={() =>
+                          applyPointTransform("brightness", brightnessValue, {
+                            r: brightnessValue,
+                            g: brightnessValue,
+                            b: brightnessValue,
+                          })
+                        }
                         className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                       >
                         ☀
