@@ -9,7 +9,7 @@ const Task1Primitives = () => {
   const [currentShape, setCurrentShape] = useState<ShapeType>("line");
   const [currentColor, setCurrentColor] = useState("#000000");
   const [currentLineWidth, setCurrentLineWidth] = useState(2);
-
+  const [jpegQuality, setJpegQuality] = useState(90);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
 
@@ -373,6 +373,25 @@ const Task1Primitives = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleSaveJPEG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "image.jpg";
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      "image/jpeg",
+      jpegQuality / 100
+    );
+  };
+
   const handleLoadFromFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -511,6 +530,25 @@ const Task1Primitives = () => {
                 </button>
               )}
             </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="font-semibold mb-3 text-gray-700">Jakość JPEG: {jpegQuality}%</h3>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              value={jpegQuality}
+              onChange={(e) => setJpegQuality(parseInt(e.target.value))}
+              className="w-full mb-3"
+            />
+            <button
+              onClick={handleSaveJPEG}
+              className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
+            >
+              <Download size={16} />
+              Zapisz jako JPEG
+            </button>
           </div>
 
           <div className="bg-white p-4 rounded-lg shadow space-y-2">

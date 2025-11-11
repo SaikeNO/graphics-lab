@@ -1,16 +1,18 @@
-import { ImageIcon, Palette, Shapes } from "lucide-react";
+import { BarChart3, ImageIcon, Palette, Shapes } from "lucide-react";
 import Task1Primitives from "./components/Task1Primitives";
 import Task2PPM from "./components/Task2PPM";
 import { useState } from "react";
 import Task3ColorSpaces from "./components/Task3ColorSpaces";
+import HistogramBinarization from "./components/HistogramBinarization";
 
 const App = () => {
   const [activeTask, setActiveTask] = useState<number>(1);
 
   const tasks = [
-    { id: 1, name: "Zadanie 1: Prymitywy", icon: Shapes },
-    { id: 2, name: "Zadanie 2: Format PPM", icon: ImageIcon },
-    { id: 3, name: "Zadanie 3: Przestrzenie Barw", icon: Palette },
+    { id: 1, name: "Prymitywy", icon: Shapes },
+    { id: 2, name: "Format PPM", icon: ImageIcon },
+    { id: 3, name: "Przestrzenie Barw", icon: Palette },
+    { id: 4, name: "Histogram", icon: BarChart3 },
   ];
 
   return (
@@ -42,6 +44,7 @@ const App = () => {
         {activeTask === 1 && <Task1Primitives />}
         {activeTask === 2 && <Task2PPM />}
         {activeTask === 3 && <Task3ColorSpaces />}
+        {activeTask === 4 && <HistogramBinarization />}
       </div>
     </div>
   );
