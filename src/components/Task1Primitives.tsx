@@ -12,6 +12,8 @@ const Task1Primitives = () => {
   const [jpegQuality, setJpegQuality] = useState(90);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
+  const [bezierDegree, setBezierDegree] = useState(3);
+  const [bezierPoints, setBezierPoints] = useState<string[]>([]);
 
   const [draggedShape, setDraggedShape] = useState<string | null>(null);
   const [draggedHandle, setDraggedHandle] = useState<number | null>(null);
@@ -44,17 +46,108 @@ const Task1Primitives = () => {
     });
 
     if (isDrawing && drawingPoints.length > 0) {
-      const tempShape: Partial<AnyShape> = {
-        type: currentShape,
-        color: currentColor,
-        lineWidth: currentLineWidth,
-        points: drawingPoints as [Point, Point],
-        selected: false,
-        id: "temp",
-      };
-      drawShape(ctx, tempShape as AnyShape, true);
+      if (currentShape === "bezier") {
+        // Dla krzywej Béziera rysuj tylko punkty podczas tworzenia
+        ctx.fillStyle = currentColor;
+        drawingPoints.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+
+        // Rysuj linie pomocnicze między punktami
+        if (drawingPoints.length > 1) {
+          ctx.save();
+          ctx.strokeStyle = "#aaaaaa";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
+          for (let i = 1; i < drawingPoints.length; i++) {
+            ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      } else {
+        const tempShape: Partial<AnyShape> = {
+          type: currentShape,
+          color: currentColor,
+          lineWidth: currentLineWidth,
+          points: drawingPoints as [Point, Point],
+          selected: false,
+          id: "temp",
+        };
+        drawShape(ctx, tempShape as AnyShape, true);
+      }
     }
   }, [shapes, isDrawing, drawingPoints, currentTool, currentShape, currentColor, currentLineWidth]);
+
+  const drawBezierCurve = (ctx: CanvasRenderingContext2D, points: Point[], showControlLines = false) => {
+    if (points.length < 2) return;
+
+    // Rysuj linie kontrolne i punkty kontrolne
+    if (showControlLines) {
+      ctx.save();
+      ctx.strokeStyle = "#aaaaaa";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // Punkty kontrolne
+      ctx.fillStyle = "#666666";
+      points.forEach((p) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
+
+    // Rysuj krzywą Béziera
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    const steps = 100;
+    for (let t = 0; t <= steps; t++) {
+      const u = t / steps;
+      const pt = calculateBezierPoint(points, u);
+      ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+  };
+
+  const calculateBezierPoint = (points: Point[], t: number): Point => {
+    const n = points.length - 1;
+    let x = 0;
+    let y = 0;
+
+    for (let i = 0; i <= n; i++) {
+      const coeff = binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
+      x += coeff * points[i].x;
+      y += coeff * points[i].y;
+    }
+
+    return { x, y };
+  };
+
+  const binomialCoefficient = (n: number, k: number): number => {
+    if (k < 0 || k > n) return 0;
+    if (k === 0 || k === n) return 1;
+
+    let result = 1;
+    for (let i = 1; i <= k; i++) {
+      result *= (n - i + 1) / i;
+    }
+    return result;
+  };
 
   const drawShape = (ctx: CanvasRenderingContext2D, shape: AnyShape, isTemp = false) => {
     ctx.strokeStyle = shape.color;
@@ -94,6 +187,12 @@ const Task1Primitives = () => {
           ctx.stroke();
         }
         break;
+
+      case "bezier":
+        if (shape.points.length >= 2) {
+          drawBezierCurve(ctx, shape.points, shape.selected && !isTemp);
+        }
+        break;
     }
   };
 
@@ -116,7 +215,6 @@ const Task1Primitives = () => {
   };
 
   const findShapeAtPoint = (point: Point): AnyShape | null => {
-    // od końca bo najnowszy na wierzchu
     for (let i = shapes.length - 1; i >= 0; i--) {
       const shape = shapes[i];
       if (isPointOnShape(point, shape)) {
@@ -139,6 +237,10 @@ const Task1Primitives = () => {
 
       case "circle": {
         return isPointNearCircle(point, shape, tolerance);
+      }
+
+      case "bezier": {
+        return isPointNearBezier(point, shape, tolerance);
       }
     }
   };
@@ -181,6 +283,17 @@ const Task1Primitives = () => {
     return Math.abs(dist - radius) <= tolerance;
   };
 
+  const isPointNearBezier = (point: Point, shape: AnyShape, tolerance: number): boolean => {
+    const steps = 100;
+    for (let t = 0; t <= steps; t++) {
+      const u = t / steps;
+      const pt = calculateBezierPoint(shape.points, u);
+      const distance = Math.sqrt(Math.pow(point.x - pt.x, 2) + Math.pow(point.y - pt.y, 2));
+      if (distance <= tolerance) return true;
+    }
+    return false;
+  };
+
   const findHandleAtPoint = (shape: AnyShape, point: Point): number | null => {
     const handleSize = 8;
     for (let i = 0; i < shape.points.length; i++) {
@@ -196,8 +309,13 @@ const Task1Primitives = () => {
     const point = getMousePos(e);
 
     if (currentTool === "draw") {
-      setIsDrawing(true);
-      setDrawingPoints([point]);
+      if (currentShape === "bezier") {
+        setIsDrawing(true);
+        setDrawingPoints([...drawingPoints, point]);
+      } else {
+        setIsDrawing(true);
+        setDrawingPoints([point]);
+      }
     } else if (currentTool === "select") {
       const shape = findShapeAtPoint(point);
       if (shape) {
@@ -231,7 +349,9 @@ const Task1Primitives = () => {
     const point = getMousePos(e);
 
     if (currentTool === "draw" && isDrawing) {
-      if (currentShape === "line" || currentShape === "rectangle" || currentShape === "circle") {
+      if (currentShape === "bezier") {
+        // Dla Béziera aktualizuj pozycję ostatniego punktu bez dodawania go do tablicy
+      } else if (currentShape === "line" || currentShape === "rectangle" || currentShape === "circle") {
         setDrawingPoints([drawingPoints[0], point]);
       }
     } else if (currentTool === "move" && draggedShape && dragStart) {
@@ -266,18 +386,22 @@ const Task1Primitives = () => {
   };
 
   const handleMouseUp = () => {
-    if (currentTool === "draw" && isDrawing && drawingPoints.length === 2) {
-      const newShape: AnyShape = {
-        id: Date.now().toString(),
-        type: currentShape,
-        color: currentColor,
-        lineWidth: currentLineWidth,
-        points: drawingPoints as [Point, Point],
-        selected: false,
-      };
-      setShapes([...shapes, newShape]);
-      setIsDrawing(false);
-      setDrawingPoints([]);
+    if (currentTool === "draw" && isDrawing) {
+      if (currentShape === "bezier") {
+        // Nie kończymy - czekamy na przycisk "Zakończ krzywą"
+      } else if (drawingPoints.length === 2) {
+        const newShape: AnyShape = {
+          id: Date.now().toString(),
+          type: currentShape,
+          color: currentColor,
+          lineWidth: currentLineWidth,
+          points: drawingPoints as [Point, Point],
+          selected: false,
+        };
+        setShapes([...shapes, newShape]);
+        setIsDrawing(false);
+        setDrawingPoints([]);
+      }
     } else if (currentTool === "move" || currentTool === "resize") {
       setDraggedShape(null);
       setDraggedHandle(null);
@@ -286,6 +410,11 @@ const Task1Primitives = () => {
   };
 
   const handleAddShapeFromForm = () => {
+    if (currentShape === "bezier") {
+      handleAddBezierFromForm();
+      return;
+    }
+
     const x1 = parseFloat(formParams.x1);
     const y1 = parseFloat(formParams.y1);
     const x2 = parseFloat(formParams.x2);
@@ -318,6 +447,12 @@ const Task1Primitives = () => {
       return;
     }
 
+    const selectedShape = shapes.find((s) => s.id === selectedShapeId);
+    if (selectedShape?.type === "bezier") {
+      handleUpdateBezierFromForm();
+      return;
+    }
+
     const x1 = parseFloat(formParams.x1);
     const y1 = parseFloat(formParams.y1);
     const x2 = parseFloat(formParams.x2);
@@ -345,7 +480,10 @@ const Task1Primitives = () => {
   };
 
   const updateFormFromShape = (shape: AnyShape) => {
-    if (shape.points.length >= 2) {
+    if (shape.type === "bezier") {
+      const pointStrings = shape.points.map((p) => `${p.x.toFixed(0)},${p.y.toFixed(0)}`);
+      setBezierPoints(pointStrings);
+    } else if (shape.points.length >= 2) {
       setFormParams({
         x1: shape.points[0].x.toFixed(0),
         y1: shape.points[0].y.toFixed(0),
@@ -353,6 +491,95 @@ const Task1Primitives = () => {
         y2: shape.points[1].y.toFixed(0),
       });
     }
+  };
+
+  const handleFinishBezier = () => {
+    if (drawingPoints.length >= 2) {
+      const newShape: AnyShape = {
+        id: Date.now().toString(),
+        type: "bezier",
+        color: currentColor,
+        lineWidth: currentLineWidth,
+        points: drawingPoints,
+        selected: false,
+      };
+      setShapes([...shapes, newShape]);
+      setIsDrawing(false);
+      setDrawingPoints([]);
+    }
+  };
+
+  const handleCancelBezier = () => {
+    setIsDrawing(false);
+    setDrawingPoints([]);
+  };
+
+  const handleAddBezierFromForm = () => {
+    const points: Point[] = [];
+    for (const pointStr of bezierPoints) {
+      const [xStr, yStr] = pointStr.split(",");
+      const x = parseFloat(xStr);
+      const y = parseFloat(yStr);
+      if (isNaN(x) || isNaN(y)) {
+        alert("Proszę podać poprawne wartości liczbowe (format: x,y)");
+        return;
+      }
+      points.push({ x, y });
+    }
+
+    if (points.length < 2) {
+      alert("Krzywa Béziera wymaga co najmniej 2 punktów");
+      return;
+    }
+
+    const newShape: AnyShape = {
+      id: Date.now().toString(),
+      type: "bezier",
+      color: currentColor,
+      lineWidth: currentLineWidth,
+      points,
+      selected: false,
+    };
+
+    setShapes([...shapes, newShape]);
+    setBezierPoints([]);
+  };
+
+  const handleUpdateBezierFromForm = () => {
+    const points: Point[] = [];
+    for (const pointStr of bezierPoints) {
+      const [xStr, yStr] = pointStr.split(",");
+      const x = parseFloat(xStr);
+      const y = parseFloat(yStr);
+      if (isNaN(x) || isNaN(y)) {
+        alert("Proszę podać poprawne wartości liczbowe (format: x,y)");
+        return;
+      }
+      points.push({ x, y });
+    }
+
+    if (points.length < 2) {
+      alert("Krzywa Béziera wymaga co najmniej 2 punktów");
+      return;
+    }
+
+    setShapes(
+      shapes.map((shape) => {
+        if (shape.id === selectedShapeId && shape.type === "bezier") {
+          return { ...shape, points };
+        }
+        return shape;
+      })
+    );
+  };
+
+  const initializeBezierPoints = () => {
+    const numPoints = bezierDegree + 1;
+    const newPoints: string[] = [];
+    for (let i = 0; i < numPoints; i++) {
+      newPoints.push("");
+    }
+    setBezierPoints(newPoints);
   };
 
   const handleClearCanvas = () => {
@@ -409,79 +636,132 @@ const Task1Primitives = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700">Narzędzie</h3>
-            <div className="space-y-2">
-              {(["draw", "select", "move", "resize"] as Tool[]).map((tool) => (
-                <button
-                  key={tool}
-                  onClick={() => setCurrentTool(tool)}
-                  className={`w-full px-3 py-2 rounded text-sm font-medium transition ${
-                    currentTool === tool ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  {tool === "draw"
-                    ? "Rysuj"
-                    : tool === "select"
-                    ? "Zaznacz"
-                    : tool === "move"
-                    ? "Przesuń"
-                    : "Zmień rozmiar"}
-                </button>
-              ))}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="lg:col-span-1 space-y-4">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="font-semibold mb-3 text-gray-700">Narzędzie</h3>
+          <div className="space-y-2">
+            {(["draw", "select", "move", "resize"] as Tool[]).map((tool) => (
+              <button
+                key={tool}
+                onClick={() => setCurrentTool(tool)}
+                className={`w-full px-3 py-2 rounded text-sm font-medium transition ${
+                  currentTool === tool ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {tool === "draw"
+                  ? "Rysuj"
+                  : tool === "select"
+                  ? "Zaznacz"
+                  : tool === "move"
+                  ? "Przesuń"
+                  : "Zmień rozmiar"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="font-semibold mb-3 text-gray-700">Typ kształtu</h3>
+          <div className="space-y-2">
+            {(["line", "rectangle", "circle", "bezier"] as ShapeType[]).map((shape) => (
+              <button
+                key={shape}
+                onClick={() => setCurrentShape(shape)}
+                className={`w-full px-3 py-2 rounded text-sm font-medium transition ${
+                  currentShape === shape ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {shape === "line"
+                  ? "Linia"
+                  : shape === "rectangle"
+                  ? "Prostokąt"
+                  : shape === "circle"
+                  ? "Okrąg"
+                  : "Krzywa Béziera"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="font-semibold mb-3 text-gray-700">Parametry</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kolor</label>
+              <input
+                type="color"
+                value={currentColor}
+                onChange={(e) => setCurrentColor(e.target.value)}
+                className="w-full h-10 rounded cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Grubość linii: {currentLineWidth}</label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={currentLineWidth}
+                onChange={(e) => setCurrentLineWidth(parseInt(e.target.value))}
+                className="w-full"
+              />
             </div>
           </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700">Typ kształtu</h3>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="font-semibold mb-3 text-gray-700">Współrzędne</h3>
+          {currentShape === "bezier" ||
+          (selectedShapeId && shapes.find((s) => s.id === selectedShapeId)?.type === "bezier") ? (
             <div className="space-y-2">
-              {(["line", "rectangle", "circle"] as ShapeType[]).map((shape) => (
-                <button
-                  key={shape}
-                  onClick={() => setCurrentShape(shape)}
-                  className={`w-full px-3 py-2 rounded text-sm font-medium transition ${
-                    currentShape === shape ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  {shape === "line" ? "Linia" : shape === "rectangle" ? "Prostokąt" : "Okrąg"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700">Parametry</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kolor</label>
-                <input
-                  type="color"
-                  value={currentColor}
-                  onChange={(e) => setCurrentColor(e.target.value)}
-                  className="w-full h-10 rounded cursor-pointer"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Grubość linii: {currentLineWidth}
-                </label>
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stopień krzywej: {bezierDegree}</label>
                 <input
                   type="range"
                   min="1"
                   max="10"
-                  value={currentLineWidth}
-                  onChange={(e) => setCurrentLineWidth(parseInt(e.target.value))}
+                  value={bezierDegree}
+                  onChange={(e) => setBezierDegree(parseInt(e.target.value))}
                   className="w-full"
                 />
+                <button
+                  onClick={initializeBezierPoints}
+                  className="w-full mt-2 px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+                >
+                  Ustaw {bezierDegree + 1} punktów
+                </button>
               </div>
+              {bezierPoints.map((point, idx) => (
+                <input
+                  key={idx}
+                  type="text"
+                  placeholder={`Punkt ${idx + 1} (x,y)`}
+                  value={point}
+                  onChange={(e) => {
+                    const newPoints = [...bezierPoints];
+                    newPoints[idx] = e.target.value;
+                    setBezierPoints(newPoints);
+                  }}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              ))}
+              <button
+                onClick={handleAddBezierFromForm}
+                className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+              >
+                Dodaj krzywą
+              </button>
+              {selectedShapeId && shapes.find((s) => s.id === selectedShapeId)?.type === "bezier" && (
+                <button
+                  onClick={handleUpdateBezierFromForm}
+                  className="w-full px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm font-medium"
+                >
+                  Zaktualizuj krzywą
+                </button>
+              )}
             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700">Współrzędne</h3>
+          ) : (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -530,66 +810,82 @@ const Task1Primitives = () => {
                 </button>
               )}
             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700">Jakość JPEG: {jpegQuality}%</h3>
-            <input
-              type="range"
-              min="1"
-              max="100"
-              value={jpegQuality}
-              onChange={(e) => setJpegQuality(parseInt(e.target.value))}
-              className="w-full mb-3"
-            />
-            <button
-              onClick={handleSaveJPEG}
-              className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              <Download size={16} />
-              Zapisz jako JPEG
-            </button>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg shadow space-y-2">
-            <button
-              onClick={handleSaveToFile}
-              className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              <Download size={16} />
-              Zapisz do pliku
-            </button>
-            <label className="w-full px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
-              <Upload size={16} />
-              Wczytaj z pliku
-              <input type="file" accept=".json" onChange={handleLoadFromFile} className="hidden" />
-            </label>
-            <button
-              onClick={handleClearCanvas}
-              className="w-full px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              <Trash2 size={16} />
-              Wyczyść kanwę
-            </button>
-          </div>
+          )}
         </div>
 
-        <div className="lg:col-span-3">
-          <div className="bg-white p-4 rounded-lg shadow sticky top-10">
-            <div className="mb-4">
-              <h3 className="font-semibold text-gray-700">Kanwa</h3>
-              <p className="text-sm text-gray-600">Obiektów: {shapes.length}</p>
-            </div>
-            <canvas
-              ref={canvasRef}
-              width={880}
-              height={600}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              className="border-2 border-gray-300 rounded cursor-crosshair bg-white"
-            />
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="font-semibold mb-3 text-gray-700">Jakość JPEG: {jpegQuality}%</h3>
+          <input
+            type="range"
+            min="1"
+            max="100"
+            value={jpegQuality}
+            onChange={(e) => setJpegQuality(parseInt(e.target.value))}
+            className="w-full mb-3"
+          />
+          <button
+            onClick={handleSaveJPEG}
+            className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
+          >
+            <Download size={16} />
+            Zapisz jako JPEG
+          </button>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow space-y-2">
+          <button
+            onClick={handleSaveToFile}
+            className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
+          >
+            <Download size={16} />
+            Zapisz do pliku
+          </button>
+          <label className="w-full px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
+            <Upload size={16} />
+            Wczytaj z pliku
+            <input type="file" accept=".json" onChange={handleLoadFromFile} className="hidden" />
+          </label>
+          <button
+            onClick={handleClearCanvas}
+            className="w-full px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-2 text-sm font-medium"
+          >
+            <Trash2 size={16} />
+            Wyczyść kanwę
+          </button>
+        </div>
+      </div>
+
+      <div className="lg:col-span-3">
+        <div className="bg-white p-4 rounded-lg shadow sticky top-3">
+          <div className="mb-4">
+            <h3 className="font-semibold text-gray-700">Kanwa</h3>
+            <p className="text-sm text-gray-600">Obiektów: {shapes.length}</p>
           </div>
+          <canvas
+            ref={canvasRef}
+            width={880}
+            height={600}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            className="border-2 border-gray-300 rounded cursor-crosshair bg-white"
+          />
+          {isDrawing && currentShape === "bezier" && (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={handleFinishBezier}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
+              >
+                Zakończ krzywą ({drawingPoints.length} punktów)
+              </button>
+              <button
+                onClick={handleCancelBezier}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+              >
+                Anuluj
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

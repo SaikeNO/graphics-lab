@@ -1,32 +1,38 @@
-export type ShapeType = "line" | "rectangle" | "circle";
-
-export interface Point {
+export type ShapeType = "line" | "rectangle" | "circle" | "bezier";
+export type Point = {
   x: number;
   y: number;
-}
+};
 
-export interface Shape {
+export type BaseShape = {
   id: string;
   type: ShapeType;
   color: string;
   lineWidth: number;
-  points: [Point, Point];
   selected: boolean;
-}
+};
 
-export interface LineShape extends Shape {
+export type LineShape = BaseShape & {
   type: "line";
-}
+  points: [Point, Point];
+};
 
-export interface RectangleShape extends Shape {
+export type RectangleShape = BaseShape & {
   type: "rectangle";
-}
+  points: [Point, Point];
+};
 
-export interface CircleShape extends Shape {
+export type CircleShape = BaseShape & {
   type: "circle";
-}
+  points: [Point, Point];
+};
 
-export type AnyShape = LineShape | RectangleShape | CircleShape;
+export type BezierShape = BaseShape & {
+  type: "bezier";
+  points: Point[];
+};
+
+export type AnyShape = LineShape | RectangleShape | CircleShape | BezierShape;
 
 export type Tool = "draw" | "move" | "resize" | "select";
 
