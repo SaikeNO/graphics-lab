@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Download, Upload, Trash2, RefreshCw, Maximize } from "lucide-react";
-import type { AnyShape, Matrix3x3, Point, ShapeType, Tool } from "../types/types";
+import type { AnyShape, Point, ShapeType, Tool } from "../types/types";
+import {
+  applyMatrixToPoint,
+  calculateBezierPoint,
+  createTranslationMatrix,
+  getRotationAroundPointMatrix,
+  getScaleAroundPointMatrix,
+} from "../utils/matrix";
+import { findHandleAtPoint, getShapeCenter, isPointOnShape } from "../utils/geometry";
+import { handleLoadFromFile, handleSaveJPEG, handleSaveToFile } from "../utils/file";
 
 const Task1Primitives = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,75 +42,6 @@ const Task1Primitives = () => {
   });
 
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
-
-  const createTranslationMatrix = (dx: number, dy: number): Matrix3x3 => ({
-    m: [
-      [1, 0, dx],
-      [0, 1, dy],
-      [0, 0, 1],
-    ],
-  });
-
-  const createRotationMatrix = (angleDegrees: number): Matrix3x3 => {
-    const rad = (angleDegrees * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    return {
-      m: [
-        [cos, -sin, 0],
-        [sin, cos, 0],
-        [0, 0, 1],
-      ],
-    };
-  };
-
-  const createScaleMatrix = (sx: number, sy: number): Matrix3x3 => ({
-    m: [
-      [sx, 0, 0],
-      [0, sy, 0],
-      [0, 0, 1],
-    ],
-  });
-
-  const multiplyMatrices = (a: Matrix3x3, b: Matrix3x3): Matrix3x3 => {
-    const m = [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 0],
-    ];
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        for (let k = 0; k < 3; k++) {
-          m[i][j] += a.m[i][k] * b.m[k][j];
-        }
-      }
-    }
-    return { m };
-  };
-
-  const applyMatrixToPoint = (matrix: Matrix3x3, point: Point): Point => {
-    const x = point.x;
-    const y = point.y;
-    const w = 1;
-
-    const nx = matrix.m[0][0] * x + matrix.m[0][1] * y + matrix.m[0][2] * w;
-    const ny = matrix.m[1][0] * x + matrix.m[1][1] * y + matrix.m[1][2] * w;
-    return { x: nx, y: ny };
-  };
-
-  const getRotationAroundPointMatrix = (angle: number, px: number, py: number) => {
-    const T1 = createTranslationMatrix(-px, -py);
-    const R = createRotationMatrix(angle);
-    const T2 = createTranslationMatrix(px, py);
-    return multiplyMatrices(T2, multiplyMatrices(R, T1));
-  };
-
-  const getScaleAroundPointMatrix = (k: number, px: number, py: number) => {
-    const T1 = createTranslationMatrix(-px, -py);
-    const S = createScaleMatrix(k, k);
-    const T2 = createTranslationMatrix(px, py);
-    return multiplyMatrices(T2, multiplyMatrices(S, T1));
-  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -152,17 +92,6 @@ const Task1Primitives = () => {
     pivotPoint,
     selectedShapeId,
   ]);
-
-  const getShapeCenter = (shape: AnyShape): Point => {
-    if (shape.points.length === 0) return { x: 0, y: 0 };
-    let sx = 0,
-      sy = 0;
-    shape.points.forEach((p) => {
-      sx += p.x;
-      sy += p.y;
-    });
-    return { x: sx / shape.points.length, y: sy / shape.points.length };
-  };
 
   const drawPivot = (ctx: CanvasRenderingContext2D, p: Point) => {
     ctx.beginPath();
@@ -256,31 +185,6 @@ const Task1Primitives = () => {
     ctx.stroke();
   };
 
-  const calculateBezierPoint = (points: Point[], t: number): Point => {
-    const n = points.length - 1;
-    let x = 0;
-    let y = 0;
-
-    for (let i = 0; i <= n; i++) {
-      const coeff = binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
-      x += coeff * points[i].x;
-      y += coeff * points[i].y;
-    }
-
-    return { x, y };
-  };
-
-  const binomialCoefficient = (n: number, k: number): number => {
-    if (k < 0 || k > n) return 0;
-    if (k === 0 || k === n) return 1;
-
-    let result = 1;
-    for (let i = 1; i <= k; i++) {
-      result *= (n - i + 1) / i;
-    }
-    return result;
-  };
-
   const drawShape = (ctx: CanvasRenderingContext2D, shape: AnyShape, isTemp = false) => {
     ctx.strokeStyle = shape.color;
     ctx.lineWidth = shape.lineWidth;
@@ -362,89 +266,6 @@ const Task1Primitives = () => {
       const shape = shapes[i];
       if (isPointOnShape(point, shape)) {
         return shape;
-      }
-    }
-    return null;
-  };
-
-  const isPointOnShape = (point: Point, shape: AnyShape): boolean => {
-    const tolerance = 5;
-    switch (shape.type) {
-      case "line":
-        return isPointNearLine(point, shape.points[0], shape.points[1], tolerance);
-      case "rectangle":
-        return isPointNearRectangle(point, shape, tolerance);
-      case "circle":
-        return isPointNearCircle(point, shape, tolerance);
-      case "bezier":
-        return isPointNearBezier(point, shape, tolerance);
-      case "polygon":
-        return isPointNearPolygon(point, shape, tolerance);
-    }
-  };
-
-  const isPointNearLine = (point: Point, start: Point, end: Point, tolerance: number): boolean => {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    if (length === 0) return false;
-
-    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (length * length)));
-    const projX = start.x + t * dx;
-    const projY = start.y + t * dy;
-    const distance = Math.sqrt(Math.pow(point.x - projX, 2) + Math.pow(point.y - projY, 2));
-
-    return distance <= tolerance;
-  };
-
-  const isPointNearPolygon = (point: Point, shape: AnyShape, tolerance: number): boolean => {
-    for (let i = 0; i < shape.points.length; i++) {
-      const p1 = shape.points[i];
-      const p2 = shape.points[(i + 1) % shape.points.length];
-      if (isPointNearLine(point, p1, p2, tolerance)) return true;
-    }
-    return false;
-  };
-
-  const isPointNearRectangle = (point: Point, shape: AnyShape, tolerance: number): boolean => {
-    const x = Math.min(shape.points[0].x, shape.points[1].x);
-    const y = Math.min(shape.points[0].y, shape.points[1].y);
-    const width = Math.abs(shape.points[1].x - shape.points[0].x);
-    const height = Math.abs(shape.points[1].y - shape.points[0].y);
-    return (
-      point.x >= x - tolerance &&
-      point.x <= x + width + tolerance &&
-      point.y >= y - tolerance &&
-      point.y <= y + height + tolerance
-    );
-  };
-
-  const isPointNearCircle = (point: Point, shape: AnyShape, tolerance: number): boolean => {
-    const radius = Math.sqrt(
-      Math.pow(shape.points[1].x - shape.points[0].x, 2) + Math.pow(shape.points[1].y - shape.points[0].y, 2)
-    );
-    const dist = Math.sqrt(Math.pow(point.x - shape.points[0].x, 2) + Math.pow(point.y - shape.points[0].y, 2));
-    return Math.abs(dist - radius) <= tolerance;
-  };
-
-  const isPointNearBezier = (point: Point, shape: AnyShape, tolerance: number): boolean => {
-    const steps = 100;
-    for (let t = 0; t <= steps; t++) {
-      const u = t / steps;
-      const pt = calculateBezierPoint(shape.points, u);
-      const distance = Math.sqrt(Math.pow(point.x - pt.x, 2) + Math.pow(point.y - pt.y, 2));
-      if (distance <= tolerance) return true;
-    }
-    return false;
-  };
-
-  const findHandleAtPoint = (shape: AnyShape, point: Point): number | null => {
-    const handleSize = 8;
-    for (let i = 0; i < shape.points.length; i++) {
-      const p = shape.points[i];
-      if (Math.abs(point.x - p.x) <= handleSize && Math.abs(point.y - p.y) <= handleSize) {
-        return i;
       }
     }
     return null;
@@ -837,52 +658,6 @@ const Task1Primitives = () => {
     }
   };
 
-  const handleSaveToFile = () => {
-    const data = JSON.stringify(shapes, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "shapes.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleSaveJPEG = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "image.jpg";
-        a.click();
-        URL.revokeObjectURL(url);
-      },
-      "image/jpeg",
-      jpegQuality / 100
-    );
-  };
-
-  const handleLoadFromFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        setShapes(data);
-      } catch {
-        alert("Błąd wczytywania pliku");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-1 space-y-4">
@@ -908,7 +683,6 @@ const Task1Primitives = () => {
                 Zaznacz
               </button>
             </div>
-            <div className="text-xs text-gray-500 font-bold mt-2 uppercase">Edycja Wierzchołków</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setCurrentTool("move")}
@@ -927,7 +701,6 @@ const Task1Primitives = () => {
                 Zmień rozm.
               </button>
             </div>
-            <div className="text-xs text-gray-500 font-bold mt-2 uppercase">Transformacje Myszą</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setCurrentTool("rotate")}
@@ -1082,7 +855,6 @@ const Task1Primitives = () => {
           </div>
         )}
 
-        {/* Parametry Rysowania (Kolor itp) */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="font-semibold mb-3 text-gray-700">Styl</h3>
           <input
@@ -1101,7 +873,6 @@ const Task1Primitives = () => {
           />
         </div>
 
-        {/* Współrzędne / Definicja Kształtu */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="font-semibold mb-3 text-gray-700">Definicja</h3>
 
@@ -1124,7 +895,6 @@ const Task1Primitives = () => {
             </div>
           ) : currentShape === "bezier" ? (
             <div className="space-y-2">
-              {/* --- PRZYWRÓCONY SUWAK START --- */}
               <div className="mb-2">
                 <label className="text-xs text-gray-500 font-semibold">Stopień krzywej: {bezierDegree}</label>
                 <input
@@ -1136,7 +906,6 @@ const Task1Primitives = () => {
                   className="w-full"
                 />
               </div>
-              {/* --- PRZYWRÓCONY SUWAK KONIEC --- */}
 
               <button onClick={initializeBezierPoints} className="w-full text-xs bg-gray-200 p-1 rounded">
                 Reset pól ({bezierDegree + 1})
@@ -1218,7 +987,7 @@ const Task1Primitives = () => {
             />
           </div>
           <button
-            onClick={handleSaveJPEG}
+            onClick={() => handleSaveJPEG(canvasRef.current, jpegQuality)}
             className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
           >
             <Download size={16} />
@@ -1229,14 +998,14 @@ const Task1Primitives = () => {
         {/* Pliki / Akcje */}
         <div className="bg-white p-4 rounded-lg shadow space-y-2">
           <button
-            onClick={handleSaveToFile}
+            onClick={() => handleSaveToFile(shapes)}
             className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm flex items-center justify-center gap-2"
           >
             <Download size={14} /> Zapisz JSON
           </button>
           <label className="w-full px-3 py-2 bg-purple-600 text-white rounded text-sm flex items-center justify-center gap-2 cursor-pointer">
             <Upload size={14} /> Wczytaj JSON{" "}
-            <input type="file" onChange={handleLoadFromFile} className="hidden" accept=".json" />
+            <input type="file" onChange={(e) => handleLoadFromFile(e, setShapes)} className="hidden" accept=".json" />
           </label>
           <button
             onClick={handleClearCanvas}
