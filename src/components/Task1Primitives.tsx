@@ -90,9 +90,9 @@ const Task1Primitives = () => {
 
     if (isDrawing && drawingPoints.length > 0) {
       if (currentShape === "bezier") {
-        drawBezierPreview(ctx);
+        drawBezierPreview(ctx, drawingPoints, currentColor);
       } else if (currentShape === "polygon") {
-        drawPolygonPreview(ctx);
+        drawPolygonPreview(ctx, drawingPoints, currentColor, currentLineWidth);
       } else {
         const tempShape: Partial<AnyShape> = {
           type: currentShape,
@@ -116,166 +116,6 @@ const Task1Primitives = () => {
     pivotPoint,
     selectedShapeId,
   ]);
-
-  // --- Funkcje Pomocnicze Rysowania (Canvas API) ---
-
-  const drawPivot = (ctx: CanvasRenderingContext2D, p: Point) => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
-    ctx.fillStyle = "rgba(255, 0, 255, 0.5)";
-    ctx.fill();
-    ctx.strokeStyle = "magenta";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(p.x - 10, p.y);
-    ctx.lineTo(p.x + 10, p.y);
-    ctx.moveTo(p.x, p.y - 10);
-    ctx.lineTo(p.x, p.y + 10);
-    ctx.stroke();
-  };
-
-  const drawBezierPreview = (ctx: CanvasRenderingContext2D) => {
-    ctx.fillStyle = currentColor;
-    drawingPoints.forEach((p) => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-    if (drawingPoints.length > 1) {
-      ctx.save();
-      ctx.strokeStyle = "#aaaaaa";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
-      for (let i = 1; i < drawingPoints.length; i++) {
-        ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-  };
-
-  const drawPolygonPreview = (ctx: CanvasRenderingContext2D) => {
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentLineWidth;
-    ctx.beginPath();
-    if (drawingPoints.length > 0) {
-      ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
-      for (let i = 1; i < drawingPoints.length; i++) {
-        ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
-      }
-    }
-    ctx.stroke();
-    ctx.fillStyle = currentColor;
-    drawingPoints.forEach((p) => {
-      ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
-    });
-  };
-
-  const drawBezierCurve = (ctx: CanvasRenderingContext2D, points: Point[], showControlLines = false) => {
-    if (points.length < 2) return;
-    if (showControlLines) {
-      ctx.save();
-      ctx.strokeStyle = "#aaaaaa";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-      ctx.fillStyle = "#666666";
-      points.forEach((p) => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
-        ctx.fill();
-      });
-    }
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    const steps = 100;
-    for (let t = 0; t <= steps; t++) {
-      const u = t / steps;
-      const pt = calculateBezierPoint(points, u);
-      ctx.lineTo(pt.x, pt.y);
-    }
-    ctx.stroke();
-  };
-
-  const drawShape = (ctx: CanvasRenderingContext2D, shape: AnyShape, isTemp = false) => {
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = shape.lineWidth;
-    ctx.fillStyle = shape.color;
-    if (shape.selected && !isTemp) {
-      ctx.strokeStyle = "#4f46e5"; // Indigo-600
-      ctx.lineWidth = shape.lineWidth + 1;
-      // Glow effect for selection
-      ctx.shadowColor = "#818cf8";
-      ctx.shadowBlur = 5;
-    } else {
-      ctx.shadowBlur = 0;
-    }
-
-    switch (shape.type) {
-      case "line":
-        if (shape.points.length >= 2) {
-          ctx.beginPath();
-          ctx.moveTo(shape.points[0].x, shape.points[0].y);
-          ctx.lineTo(shape.points[1].x, shape.points[1].y);
-          ctx.stroke();
-        }
-        break;
-      case "rectangle":
-        if (shape.points.length >= 2) {
-          const width = shape.points[1].x - shape.points[0].x;
-          const height = shape.points[1].y - shape.points[0].y;
-          ctx.strokeRect(shape.points[0].x, shape.points[0].y, width, height);
-        }
-        break;
-      case "circle":
-        if (shape.points.length >= 2) {
-          const radius = Math.sqrt(
-            Math.pow(shape.points[1].x - shape.points[0].x, 2) + Math.pow(shape.points[1].y - shape.points[0].y, 2)
-          );
-          ctx.beginPath();
-          ctx.arc(shape.points[0].x, shape.points[0].y, radius, 0, 2 * Math.PI);
-          ctx.stroke();
-        }
-        break;
-      case "bezier":
-        if (shape.points.length >= 2) {
-          drawBezierCurve(ctx, shape.points, shape.selected && !isTemp);
-        }
-        break;
-      case "polygon":
-        if (shape.points.length >= 2) {
-          ctx.beginPath();
-          ctx.moveTo(shape.points[0].x, shape.points[0].y);
-          for (let i = 1; i < shape.points.length; i++) {
-            ctx.lineTo(shape.points[i].x, shape.points[i].y);
-          }
-          ctx.closePath();
-          ctx.stroke();
-        }
-        break;
-    }
-    ctx.shadowBlur = 0; // Reset shadow
-  };
-
-  const drawHandles = (ctx: CanvasRenderingContext2D, shape: AnyShape) => {
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = "#4f46e5";
-    ctx.lineWidth = 2;
-    shape.points.forEach((point) => {
-      ctx.fillRect(point.x - 4, point.y - 4, 8, 8);
-      ctx.strokeRect(point.x - 4, point.y - 4, 8, 8);
-    });
-  };
 
   // --- Logika Interakcji (Mouse Handlers) ---
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
@@ -370,7 +210,7 @@ const Task1Primitives = () => {
 
     if (currentTool === "draw" && isDrawing) {
       if (currentShape === "bezier" || currentShape === "polygon") {
-        // visual feedback handled in render
+        // visual feedback handled in render via drawingPoints state
       } else if (currentShape === "line" || currentShape === "rectangle" || currentShape === "circle") {
         setDrawingPoints([drawingPoints[0], point]);
       }
@@ -657,61 +497,6 @@ const Task1Primitives = () => {
     }
   };
 
-  // --- Komponenty UI ---
-
-  const ToolButton = ({
-    tool,
-    icon: Icon,
-    label,
-  }: {
-    tool: Tool;
-    icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
-    label: string;
-  }) => (
-    <button
-      onClick={() => setCurrentTool(tool)}
-      className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium w-full transition-colors ${
-        currentTool === tool
-          ? "bg-indigo-600 text-white shadow-sm"
-          : "bg-white text-gray-700 hover:bg-gray-50 border border-transparent hover:border-gray-200"
-      }`}
-    >
-      <Icon size={16} /> {label}
-    </button>
-  );
-
-  const ShapeButton = ({
-    shape,
-    icon: Icon,
-    label,
-  }: {
-    shape: ShapeType;
-    icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
-    label: string;
-  }) => (
-    <button
-      onClick={() => {
-        setCurrentShape(shape);
-        setCurrentTool("draw");
-      }}
-      className={`flex flex-col items-center justify-center p-2 rounded-md transition-colors border ${
-        currentShape === shape
-          ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-          : "bg-white border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200"
-      }`}
-    >
-      <Icon size={20} className="mb-1" />
-      <span className="text-[10px] font-medium">{label}</span>
-    </button>
-  );
-
-  const PanelSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="mb-6 border-b border-gray-100 pb-4 last:border-0">
-      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{title}</h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-800 font-sans">
       {/* 1. Górny Pasek Narzędziowy */}
@@ -773,13 +558,49 @@ const Task1Primitives = () => {
           <div className="p-4">
             <PanelSection title="Narzędzia">
               <div className="space-y-1">
-                <ToolButton tool="select" icon={MousePointer2} label="Zaznacz / Edytuj" />
-                <ToolButton tool="draw" icon={PenTool} label="Rysuj" />
-                <ToolButton tool="move" icon={Move} label="Przesuń" />
-                <ToolButton tool="resize" icon={Scaling} label="Zmień rozmiar" />
+                <ToolButton
+                  tool="select"
+                  icon={MousePointer2}
+                  label="Zaznacz / Edytuj"
+                  active={currentTool === "select"}
+                  onClick={() => setCurrentTool("select")}
+                />
+                <ToolButton
+                  tool="draw"
+                  icon={PenTool}
+                  label="Rysuj"
+                  active={currentTool === "draw"}
+                  onClick={() => setCurrentTool("draw")}
+                />
+                <ToolButton
+                  tool="move"
+                  icon={Move}
+                  label="Przesuń"
+                  active={currentTool === "move"}
+                  onClick={() => setCurrentTool("move")}
+                />
+                <ToolButton
+                  tool="resize"
+                  icon={Scaling}
+                  label="Zmień rozmiar"
+                  active={currentTool === "resize"}
+                  onClick={() => setCurrentTool("resize")}
+                />
                 <div className="grid grid-cols-2 gap-1">
-                  <ToolButton tool="rotate" icon={RefreshCw} label="Obróć" />
-                  <ToolButton tool="scale" icon={Maximize} label="Skaluj" />
+                  <ToolButton
+                    tool="rotate"
+                    icon={RefreshCw}
+                    label="Obróć"
+                    active={currentTool === "rotate"}
+                    onClick={() => setCurrentTool("rotate")}
+                  />
+                  <ToolButton
+                    tool="scale"
+                    icon={Maximize}
+                    label="Skaluj"
+                    active={currentTool === "scale"}
+                    onClick={() => setCurrentTool("scale")}
+                  />
                 </div>
                 {(currentTool === "rotate" || currentTool === "scale") && (
                   <p className="text-[10px] text-gray-400 italic px-1 mt-1">Ctrl + Click ustawia pivot point</p>
@@ -789,11 +610,56 @@ const Task1Primitives = () => {
 
             <PanelSection title="Kształty">
               <div className="grid grid-cols-3 gap-2">
-                <ShapeButton shape="line" icon={Slash} label="Linia" />
-                <ShapeButton shape="rectangle" icon={Square} label="Prostokąt" />
-                <ShapeButton shape="circle" icon={Circle} label="Okrąg" />
-                <ShapeButton shape="bezier" icon={Spline} label="Krzywa" />
-                <ShapeButton shape="polygon" icon={Hexagon} label="Wielokąt" />
+                <ShapeButton
+                  shape="line"
+                  icon={Slash}
+                  label="Linia"
+                  active={currentShape === "line"}
+                  onClick={() => {
+                    setCurrentShape("line");
+                    setCurrentTool("draw");
+                  }}
+                />
+                <ShapeButton
+                  shape="rectangle"
+                  icon={Square}
+                  label="Prostokąt"
+                  active={currentShape === "rectangle"}
+                  onClick={() => {
+                    setCurrentShape("rectangle");
+                    setCurrentTool("draw");
+                  }}
+                />
+                <ShapeButton
+                  shape="circle"
+                  icon={Circle}
+                  label="Okrąg"
+                  active={currentShape === "circle"}
+                  onClick={() => {
+                    setCurrentShape("circle");
+                    setCurrentTool("draw");
+                  }}
+                />
+                <ShapeButton
+                  shape="bezier"
+                  icon={Spline}
+                  label="Krzywa"
+                  active={currentShape === "bezier"}
+                  onClick={() => {
+                    setCurrentShape("bezier");
+                    setCurrentTool("draw");
+                  }}
+                />
+                <ShapeButton
+                  shape="polygon"
+                  icon={Hexagon}
+                  label="Wielokąt"
+                  active={currentShape === "polygon"}
+                  onClick={() => {
+                    setCurrentShape("polygon");
+                    setCurrentTool("draw");
+                  }}
+                />
               </div>
             </PanelSection>
 
@@ -871,7 +737,6 @@ const Task1Primitives = () => {
               onMouseUp={handleMouseUp}
               className="block cursor-crosshair"
             />
-            {/* Pivot Point Indicator overlay if needed, currently drawn on canvas */}
           </div>
         </main>
 
@@ -1157,6 +1022,224 @@ const Task1Primitives = () => {
       </div>
     </div>
   );
+};
+
+// ============================================================================
+// KOMPONENTY POMOCNICZE (Wydzielone poza główny komponent)
+// ============================================================================
+
+const ToolButton = ({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  tool: Tool;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium w-full transition-colors ${
+      active
+        ? "bg-indigo-600 text-white shadow-sm"
+        : "bg-white text-gray-700 hover:bg-gray-50 border border-transparent hover:border-gray-200"
+    }`}
+  >
+    <Icon size={16} /> {label}
+  </button>
+);
+
+const ShapeButton = ({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  shape: ShapeType;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center p-2 rounded-md transition-colors border ${
+      active
+        ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+        : "bg-white border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200"
+    }`}
+  >
+    <Icon size={20} className="mb-1" />
+    <span className="text-[10px] font-medium">{label}</span>
+  </button>
+);
+
+const PanelSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="mb-6 border-b border-gray-100 pb-4 last:border-0">
+    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{title}</h3>
+    <div className="space-y-3">{children}</div>
+  </div>
+);
+
+// Funkcje pomocnicze do rysowania
+const drawPivot = (ctx: CanvasRenderingContext2D, p: Point) => {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+  ctx.fillStyle = "rgba(255, 0, 255, 0.5)";
+  ctx.fill();
+  ctx.strokeStyle = "magenta";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(p.x - 10, p.y);
+  ctx.lineTo(p.x + 10, p.y);
+  ctx.moveTo(p.x, p.y - 10);
+  ctx.lineTo(p.x, p.y + 10);
+  ctx.stroke();
+};
+
+const drawBezierPreview = (ctx: CanvasRenderingContext2D, points: Point[], color: string) => {
+  ctx.fillStyle = color;
+  points.forEach((p) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+  if (points.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = "#aaaaaa";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+const drawPolygonPreview = (ctx: CanvasRenderingContext2D, points: Point[], color: string, lineWidth: number) => {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.beginPath();
+  if (points.length > 0) {
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+  }
+  ctx.stroke();
+  ctx.fillStyle = color;
+  points.forEach((p) => {
+    ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+  });
+};
+
+const drawBezierCurve = (ctx: CanvasRenderingContext2D, points: Point[], showControlLines = false) => {
+  if (points.length < 2) return;
+  if (showControlLines) {
+    ctx.save();
+    ctx.strokeStyle = "#aaaaaa";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    ctx.fillStyle = "#666666";
+    points.forEach((p) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+  }
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  const steps = 100;
+  for (let t = 0; t <= steps; t++) {
+    const u = t / steps;
+    const pt = calculateBezierPoint(points, u);
+    ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+};
+
+const drawShape = (ctx: CanvasRenderingContext2D, shape: AnyShape, isTemp = false) => {
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = shape.lineWidth;
+  ctx.fillStyle = shape.color;
+  if (shape.selected && !isTemp) {
+    ctx.strokeStyle = "#4f46e5"; // Indigo-600
+    ctx.lineWidth = shape.lineWidth + 1;
+    ctx.shadowColor = "#818cf8";
+    ctx.shadowBlur = 5;
+  } else {
+    ctx.shadowBlur = 0;
+  }
+
+  switch (shape.type) {
+    case "line":
+      if (shape.points.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(shape.points[0].x, shape.points[0].y);
+        ctx.lineTo(shape.points[1].x, shape.points[1].y);
+        ctx.stroke();
+      }
+      break;
+    case "rectangle":
+      if (shape.points.length >= 2) {
+        const width = shape.points[1].x - shape.points[0].x;
+        const height = shape.points[1].y - shape.points[0].y;
+        ctx.strokeRect(shape.points[0].x, shape.points[0].y, width, height);
+      }
+      break;
+    case "circle":
+      if (shape.points.length >= 2) {
+        const radius = Math.sqrt(
+          Math.pow(shape.points[1].x - shape.points[0].x, 2) + Math.pow(shape.points[1].y - shape.points[0].y, 2)
+        );
+        ctx.beginPath();
+        ctx.arc(shape.points[0].x, shape.points[0].y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
+      break;
+    case "bezier":
+      if (shape.points.length >= 2) {
+        drawBezierCurve(ctx, shape.points, shape.selected && !isTemp);
+      }
+      break;
+    case "polygon":
+      if (shape.points.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(shape.points[0].x, shape.points[0].y);
+        for (let i = 1; i < shape.points.length; i++) {
+          ctx.lineTo(shape.points[i].x, shape.points[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+      break;
+  }
+  ctx.shadowBlur = 0; // Reset shadow
+};
+
+const drawHandles = (ctx: CanvasRenderingContext2D, shape: AnyShape) => {
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#4f46e5";
+  ctx.lineWidth = 2;
+  shape.points.forEach((point) => {
+    ctx.fillRect(point.x - 4, point.y - 4, 8, 8);
+    ctx.strokeRect(point.x - 4, point.y - 4, 8, 8);
+  });
 };
 
 export default Task1Primitives;

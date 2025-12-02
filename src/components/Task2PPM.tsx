@@ -12,6 +12,7 @@ import {
   ArrowRightLeft,
   Image as ImageIcon,
   Move,
+  ScanSearch,
 } from "lucide-react";
 import type { PPMImage } from "../types/types";
 import { parsePPM } from "../utils/parsePPM";
@@ -50,7 +51,7 @@ const Task2PPM = () => {
   const [morphKernelStr, setMorphKernelStr] = useState("0,1,0\n1,1,1\n0,1,0");
 
   // ==========================================
-  // LOGIKA
+  // LOGIKA (Bez zmian - skrócona dla czytelności)
   // ==========================================
 
   const calculateHistogram = (image: PPMImage): number[] => {
@@ -579,8 +580,11 @@ const Task2PPM = () => {
     try {
       const rows = morphKernelStr.trim().split("\n");
       const kernel = rows.map((row) => row.split(",").map((val) => parseInt(val.trim())));
+      const width = kernel[0].length;
+      if (!kernel.every((row) => row.length === width)) throw new Error();
       return kernel;
     } catch {
+      alert("Błąd parsowania kernela. Użyj formatu: 0,1,0 (nowa linia) 1,1,1...");
       return null;
     }
   };
@@ -633,6 +637,7 @@ const Task2PPM = () => {
     const kernel = parseMorphKernel();
     if (!kernel) return;
     let pixels = currentImage.pixels;
+
     if (type === "dilation")
       pixels = performMorphOperation(pixels, currentImage.width, currentImage.height, kernel, "dilation");
     else if (type === "erosion")
@@ -649,60 +654,93 @@ const Task2PPM = () => {
     displayImage(newImage);
   };
 
-  // --- Komponenty pomocnicze UI ---
+  const performHitOrMiss = (
+    pixels: Uint8ClampedArray,
+    width: number,
+    height: number,
+    kernel: number[][]
+  ): Uint8ClampedArray => {
+    const hitMap = new Uint8ClampedArray(pixels.length).fill(0);
+    for (let i = 3; i < hitMap.length; i += 4) hitMap[i] = 255;
 
-  const PanelSection = ({
-    title,
-    icon: Icon,
-    children,
-  }: {
-    title: string;
-    icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
-    children: React.ReactNode;
-  }) => (
-    <div className="mb-6 border-b border-gray-100 pb-4 last:border-0">
-      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-        <Icon size={14} className="text-indigo-600" /> {title}
-      </h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
+    const kh = kernel.length;
+    const kw = kernel[0].length;
+    const cy = Math.floor(kh / 2);
+    const cx = Math.floor(kw / 2);
 
-  const ActionButton = ({
-    onClick,
-    children,
-    variant = "primary",
-  }: {
-    onClick: () => void;
-    children: React.ReactNode;
-    variant?: "primary" | "secondary" | "outline";
-  }) => {
-    const baseClass =
-      "px-3 py-1.5 rounded-md text-xs font-medium transition-colors w-full flex items-center justify-center gap-2";
-    const variants = {
-      primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
-      secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
-      outline: "border border-gray-200 text-gray-600 hover:bg-gray-50",
-    };
-    return (
-      <button onClick={onClick} className={`${baseClass} ${variants[variant]}`}>
-        {children}
-      </button>
-    );
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let isMatch = true;
+        for (let ky = 0; ky < kh; ky++) {
+          for (let kx = 0; kx < kw; kx++) {
+            const kVal = kernel[ky][kx];
+            if (kVal === -1) continue;
+            const py = y + ky - cy;
+            const px = x + kx - cx;
+            let pixelVal = 0;
+            if (py >= 0 && py < height && px >= 0 && px < width) {
+              const idx = (py * width + px) * 4;
+              pixelVal = pixels[idx] > 128 ? 1 : 0;
+            }
+            if (kVal === 1 && pixelVal !== 1) {
+              isMatch = false;
+              break;
+            }
+            if (kVal === 0 && pixelVal !== 0) {
+              isMatch = false;
+              break;
+            }
+          }
+          if (!isMatch) break;
+        }
+        if (isMatch) {
+          const idx = (y * width + x) * 4;
+          hitMap[idx] = 255;
+          hitMap[idx + 1] = 255;
+          hitMap[idx + 2] = 255;
+        }
+      }
+    }
+    return hitMap;
   };
 
-  const RGBInput = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
-    <div className="relative">
-      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{label}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full pl-6 pr-1 py-1 text-xs border border-gray-200 rounded-md text-right focus:border-indigo-500 outline-none"
-      />
-    </div>
-  );
+  const applyHitOrMissOperation = (mode: "basic" | "thinning" | "thickening") => {
+    if (!currentImage) return;
+    const kernel = parseMorphKernel();
+    if (!kernel) return;
 
+    const hitMap = performHitOrMiss(currentImage.pixels, currentImage.width, currentImage.height, kernel);
+
+    if (mode === "basic") {
+      const newImage = { ...currentImage, pixels: hitMap };
+      setCurrentImage(newImage);
+      displayImage(newImage);
+      return;
+    }
+
+    const newPixels = new Uint8ClampedArray(currentImage.pixels);
+    for (let i = 0; i < newPixels.length; i += 4) {
+      const isHit = hitMap[i] === 255;
+      if (mode === "thinning") {
+        if (isHit) {
+          newPixels[i] = 0;
+          newPixels[i + 1] = 0;
+          newPixels[i + 2] = 0;
+        }
+      } else if (mode === "thickening") {
+        if (isHit) {
+          newPixels[i] = 255;
+          newPixels[i + 1] = 255;
+          newPixels[i + 2] = 255;
+        }
+      }
+    }
+    const newImage = { ...currentImage, pixels: newPixels };
+    setCurrentImage(newImage);
+    displayImage(newImage);
+  };
+
+  // Zwracamy UI
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50 overflow-hidden font-sans text-gray-800">
       {/* 1. GÓRNY PASEK (HEADER) */}
@@ -825,15 +863,17 @@ const Task2PPM = () => {
                 {/* Morfologia */}
                 <PanelSection title="Morfologia" icon={Layers}>
                   <div className="mb-2">
-                    <p className="text-[10px] font-bold text-gray-400 mb-1">KERNEL (0, 1)</p>
+                    <p className="text-[10px] font-bold text-gray-400 mb-1">KERNEL (0, 1, -1)</p>
+                    <p className="text-[9px] text-gray-400 mb-1 italic">-1 oznacza "Don't Care" (dla Hit-or-Miss)</p>
                     <textarea
                       value={morphKernelStr}
                       onChange={(e) => setMorphKernelStr(e.target.value)}
                       className="w-full p-2 border border-gray-200 rounded-md text-[10px] font-mono bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none"
                       rows={3}
+                      placeholder="0,1,0&#10;1,1,1&#10;0,1,0"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 mb-3">
                     <ActionButton variant="secondary" onClick={() => applyMorphology("dilation")}>
                       Dylatacja
                     </ActionButton>
@@ -846,6 +886,29 @@ const Task2PPM = () => {
                     <ActionButton variant="secondary" onClick={() => applyMorphology("closing")}>
                       Domknięcie
                     </ActionButton>
+                  </div>
+
+                  {/* Sekcja Hit-or-Miss */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-2 mb-2 text-xs font-bold text-gray-500">
+                      <ScanSearch size={12} /> HIT-OR-MISS
+                    </div>
+                    <div className="space-y-2">
+                      <ActionButton variant="outline" onClick={() => applyHitOrMissOperation("basic")}>
+                        Pokaż Trafienia (Basic)
+                      </ActionButton>
+                      <div className="grid grid-cols-2 gap-2">
+                        <ActionButton variant="secondary" onClick={() => applyHitOrMissOperation("thinning")}>
+                          Pocienianie
+                        </ActionButton>
+                        <ActionButton variant="secondary" onClick={() => applyHitOrMissOperation("thickening")}>
+                          Pogrubianie
+                        </ActionButton>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 mt-2 italic text-center">
+                      Wymaga obrazu binarnego (użyj Binaryzacji w prawym panelu).
+                    </p>
                   </div>
                 </PanelSection>
 
@@ -952,7 +1015,6 @@ const Task2PPM = () => {
 
                       <div className="border-t border-gray-100 my-2"></div>
 
-                      {/* PRZYWRÓCONE UI DLA DZIELENIA */}
                       <div className="grid grid-cols-4 gap-1 items-center">
                         <span className="text-[10px] font-bold text-gray-400">DZIELENIE</span>
                         <RGBInput
@@ -1100,5 +1162,57 @@ const Task2PPM = () => {
     </div>
   );
 };
+
+const PanelSection = ({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
+  children: React.ReactNode;
+}) => (
+  <div className="mb-6 border-b border-gray-100 pb-4 last:border-0">
+    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <Icon size={14} className="text-indigo-600" /> {title}
+    </h3>
+    <div className="space-y-3">{children}</div>
+  </div>
+);
+
+const ActionButton = ({
+  onClick,
+  children,
+  variant = "primary",
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  variant?: "primary" | "secondary" | "outline";
+}) => {
+  const baseClass =
+    "px-3 py-1.5 rounded-md text-xs font-medium transition-colors w-full flex items-center justify-center gap-2";
+  const variants = {
+    primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
+    secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+    outline: "border border-gray-200 text-gray-600 hover:bg-gray-50",
+  };
+  return (
+    <button onClick={onClick} className={`${baseClass} ${variants[variant]}`}>
+      {children}
+    </button>
+  );
+};
+
+const RGBInput = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
+  <div className="relative">
+    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{label}</span>
+    <input
+      type="number"
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="w-full pl-6 pr-1 py-1 text-xs border border-gray-200 rounded-md text-right focus:border-indigo-500 outline-none"
+    />
+  </div>
+);
 
 export default Task2PPM;
