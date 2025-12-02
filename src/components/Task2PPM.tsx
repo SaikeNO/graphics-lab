@@ -10,11 +10,13 @@ import {
   RefreshCcw,
   Sun,
   ArrowRightLeft,
+  Image as ImageIcon,
+  Move,
 } from "lucide-react";
 import type { PPMImage } from "../types/types";
 import { parsePPM } from "../utils/parsePPM";
 
-const Task2Combined = () => {
+const Task2PPM = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const histogramRef = useRef<HTMLCanvasElement>(null);
 
@@ -23,8 +25,6 @@ const Task2Combined = () => {
   const [currentImage, setCurrentImage] = useState<PPMImage | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-
-  // PRZYWRÓCONE: Stan jakości JPEG
   const [jpegQuality, setJpegQuality] = useState(90);
 
   // --- Stan Histogramu ---
@@ -50,7 +50,7 @@ const Task2Combined = () => {
   const [morphKernelStr, setMorphKernelStr] = useState("0,1,0\n1,1,1\n0,1,0");
 
   // ==========================================
-  // LOGIKA HISTOGRAMU
+  // LOGIKA
   // ==========================================
 
   const calculateHistogram = (image: PPMImage): number[] => {
@@ -65,31 +65,31 @@ const Task2Combined = () => {
   const drawHistogram = (hist: number[]) => {
     const canvas = histogramRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = 1000;
-    canvas.height = 300;
+    const containerWidth = canvas.parentElement?.clientWidth || 300;
+    canvas.width = containerWidth;
+    canvas.height = 180;
 
-    const marginBottom = 30;
-    const marginLeft = 40;
+    const marginBottom = 20;
+    const marginLeft = 30;
     const plotHeight = canvas.height - marginBottom;
     const plotWidth = canvas.width - marginLeft;
 
-    ctx.fillStyle = "#f9fafb";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const maxVal = Math.max(...hist);
     const barWidth = plotWidth / 256;
 
-    ctx.fillStyle = "#3b82f6";
+    ctx.fillStyle = "#6366f1";
     for (let i = 0; i < 256; i++) {
       const barHeight = (hist[i] / maxVal) * (plotHeight - 10);
       ctx.fillRect(marginLeft + i * barWidth, plotHeight - barHeight, barWidth, barHeight);
     }
 
-    ctx.strokeStyle = "#374151";
+    ctx.strokeStyle = "#e5e7eb";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(marginLeft, 0);
@@ -97,29 +97,24 @@ const Task2Combined = () => {
     ctx.lineTo(canvas.width, plotHeight);
     ctx.stroke();
 
-    ctx.fillStyle = "#374151";
-    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
-    const xLabels = [0, 64, 128, 192, 255];
-    xLabels.forEach((val) => {
+    [0, 128, 255].forEach((val) => {
       const x = marginLeft + (val / 255) * plotWidth;
-      ctx.fillText(val.toString(), x, plotHeight + 20);
+      ctx.fillText(val.toString(), x, plotHeight + 14);
     });
 
     if (autoThreshold !== null || binThreshold !== null) {
       const valToShow = autoThreshold !== null ? autoThreshold : binThreshold;
+      const thresholdX = marginLeft + valToShow * barWidth;
+
       ctx.strokeStyle = "#ef4444";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      const thresholdX = marginLeft + valToShow * barWidth;
       ctx.moveTo(thresholdX, 0);
       ctx.lineTo(thresholdX, plotHeight);
       ctx.stroke();
-
-      ctx.fillStyle = "#ef4444";
-      ctx.font = "bold 14px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText(`Próg: ${valToShow}`, thresholdX + 5, 20);
     }
   };
 
@@ -134,11 +129,7 @@ const Task2Combined = () => {
     if (histogram && histogramRef.current) {
       drawHistogram(histogram);
     }
-  }, [histogram, autoThreshold, binThreshold]);
-
-  // ==========================================
-  // PODSTAWOWE OPERACJE
-  // ==========================================
+  }, [histogram, autoThreshold, binThreshold, currentImage]);
 
   const displayImage = (image: PPMImage) => {
     const canvas = canvasRef.current;
@@ -209,10 +200,7 @@ const Task2Combined = () => {
   };
 
   const handleSaveJPEG = () => {
-    if (!currentImage) {
-      alert("Najpierw wczytaj obraz");
-      return;
-    }
+    if (!currentImage) return alert("Najpierw wczytaj obraz");
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.toBlob(
@@ -221,7 +209,7 @@ const Task2Combined = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "image.jpg";
+        a.download = "processed_image.jpg";
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -239,10 +227,6 @@ const Task2Combined = () => {
     }
   };
 
-  // ==========================================
-  // NORMALIZACJA
-  // ==========================================
-
   const stretchHistogram = () => {
     if (!currentImage) return;
     const newPixels = new Uint8ClampedArray(currentImage.pixels);
@@ -257,7 +241,6 @@ const Task2Combined = () => {
     }
     const range = max - min;
     if (range === 0) return;
-
     for (let i = 0; i < newPixels.length; i += 4) {
       for (let c = 0; c < 3; c++) {
         newPixels[i + c] = Math.round(((newPixels[i + c] - min) / range) * 255);
@@ -272,11 +255,9 @@ const Task2Combined = () => {
     if (!currentImage) return;
     const hist = calculateHistogram(currentImage);
     const totalPixels = currentImage.width * currentImage.height;
-
     const cdf = new Array(256).fill(0);
     cdf[0] = hist[0];
     for (let i = 1; i < 256; i++) cdf[i] = cdf[i - 1] + hist[i];
-
     let cdfMin = 0;
     for (let i = 0; i < 256; i++) {
       if (cdf[i] !== 0) {
@@ -284,27 +265,20 @@ const Task2Combined = () => {
         break;
       }
     }
-
     const mapping = new Array(256);
     for (let i = 0; i < 256; i++) {
       mapping[i] = Math.round(((cdf[i] - cdfMin) / (totalPixels - cdfMin)) * 255);
     }
-
     const newPixels = new Uint8ClampedArray(currentImage.pixels);
     for (let i = 0; i < newPixels.length; i += 4) {
       const gray = Math.round(0.299 * newPixels[i] + 0.587 * newPixels[i + 1] + 0.114 * newPixels[i + 2]);
       const newGray = mapping[gray];
       newPixels[i] = newPixels[i + 1] = newPixels[i + 2] = newGray;
     }
-
     const newImage = { ...currentImage, pixels: newPixels };
     setCurrentImage(newImage);
     displayImage(newImage);
   };
-
-  // ==========================================
-  // BINARYZACJA
-  // ==========================================
 
   const binarizeManual = (threshold: number) => {
     if (!currentImage) return;
@@ -350,7 +324,6 @@ const Task2Combined = () => {
     let threshold = Math.round(sum / count);
     let prevThreshold = -1;
     let iterations = 0;
-
     while (Math.abs(threshold - prevThreshold) > 1 && iterations < 100) {
       prevThreshold = threshold;
       let sum1 = 0,
@@ -360,7 +333,6 @@ const Task2Combined = () => {
         count1 += hist[i];
       }
       const mean1 = count1 > 0 ? sum1 / count1 : 0;
-
       let sum2 = 0,
         count2 = 0;
       for (let i = threshold; i < 256; i++) {
@@ -381,7 +353,6 @@ const Task2Combined = () => {
     const totalPixels = currentImage.width * currentImage.height;
     let maxEntropy = -Infinity;
     let bestThreshold = 128;
-
     for (let t = 1; t < 255; t++) {
       let p1 = 0,
         p2 = 0;
@@ -390,7 +361,6 @@ const Task2Combined = () => {
       if (p1 === 0 || p2 === 0) continue;
       p1 /= totalPixels;
       p2 /= totalPixels;
-
       let h1 = 0,
         h2 = 0;
       for (let i = 0; i < t; i++) {
@@ -414,10 +384,6 @@ const Task2Combined = () => {
     setBinThreshold(bestThreshold);
     binarizeManual(bestThreshold);
   };
-
-  // ==========================================
-  // PRZEKSZTAŁCENIA PUNKTOWE
-  // ==========================================
 
   const applyPointTransform = (operation: string, value: number, rgbValues: { r: number; g: number; b: number }) => {
     if (!currentImage) return;
@@ -476,17 +442,12 @@ const Task2Combined = () => {
     displayImage(newImage);
   };
 
-  // ==========================================
-  // FILTRY I MORFOLOGIA
-  // ==========================================
-
   const applyConvolution = (mask: number[][], divisor: number = 1, offset: number = 0) => {
     if (!currentImage) return;
     const { width, height, pixels } = currentImage;
     const newPixels = new Uint8ClampedArray(pixels);
     const maskSize = mask.length;
     const halfMask = Math.floor(maskSize / 2);
-
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         for (let c = 0; c < 3; c++) {
@@ -525,7 +486,6 @@ const Task2Combined = () => {
     const newPixels = new Uint8ClampedArray(pixels);
     const size = filterSize;
     const halfSize = Math.floor(size / 2);
-
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         for (let c = 0; c < 3; c++) {
@@ -565,7 +525,6 @@ const Task2Combined = () => {
       [0, 0, 0],
       [1, 2, 1],
     ];
-
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         for (let c = 0; c < 3; c++) {
@@ -595,8 +554,6 @@ const Task2Combined = () => {
       [-1, 5, -1],
       [0, -1, 0],
     ]);
-
-  // PRZYWRÓCONE: Gaussian Blur Function
   const applyGaussianBlur = () =>
     applyConvolution(
       [
@@ -640,7 +597,6 @@ const Task2Combined = () => {
     const kw = kernel[0].length;
     const cy = Math.floor(kh / 2);
     const cx = Math.floor(kw / 2);
-
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         for (let c = 0; c < 3; c++) {
@@ -693,449 +649,456 @@ const Task2Combined = () => {
     displayImage(newImage);
   };
 
-  return (
-    <div className="mx-auto pb-10">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* LEWA KOLUMNA - PANEL STEROWANIA */}
-        <div className="lg:col-span-1 space-y-4">
-          {/* 1. Wczytywanie */}
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
-              <Upload size={18} /> Wczytywanie
-            </h3>
-            <div className="space-y-2">
-              <label className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
-                PPM <input type="file" accept=".ppm" onChange={handleLoadPPM} className="hidden" />
-              </label>
-              <label className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
-                JPEG <input type="file" accept=".jpg,.jpeg" onChange={handleLoadJPEG} className="hidden" />
-              </label>
-              {currentImage && (
-                <button
-                  onClick={resetToOriginal}
-                  className="w-full px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                  <RotateCcw size={16} /> Resetuj
-                </button>
-              )}
-            </div>
-          </div>
+  // --- Komponenty pomocnicze UI ---
 
+  const PanelSection = ({
+    title,
+    icon: Icon,
+    children,
+  }: {
+    title: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
+    children: React.ReactNode;
+  }) => (
+    <div className="mb-6 border-b border-gray-100 pb-4 last:border-0">
+      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Icon size={14} className="text-indigo-600" /> {title}
+      </h3>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+
+  const ActionButton = ({
+    onClick,
+    children,
+    variant = "primary",
+  }: {
+    onClick: () => void;
+    children: React.ReactNode;
+    variant?: "primary" | "secondary" | "outline";
+  }) => {
+    const baseClass =
+      "px-3 py-1.5 rounded-md text-xs font-medium transition-colors w-full flex items-center justify-center gap-2";
+    const variants = {
+      primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
+      secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+      outline: "border border-gray-200 text-gray-600 hover:bg-gray-50",
+    };
+    return (
+      <button onClick={onClick} className={`${baseClass} ${variants[variant]}`}>
+        {children}
+      </button>
+    );
+  };
+
+  const RGBInput = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
+    <div className="relative">
+      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">{label}</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full pl-6 pr-1 py-1 text-xs border border-gray-200 rounded-md text-right focus:border-indigo-500 outline-none"
+      />
+    </div>
+  );
+
+  return (
+    <div className="w-full h-screen flex flex-col bg-gray-50 overflow-hidden font-sans text-gray-800">
+      {/* 1. GÓRNY PASEK (HEADER) */}
+      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-10 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-indigo-600 font-bold text-lg">
+            <ImageIcon /> <span>PPM Editor</span>
+          </div>
+          <div className="h-6 w-px bg-gray-200 mx-2"></div>
+          <div className="flex gap-2">
+            <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-colors">
+              <Upload size={14} /> Wczytaj PPM
+              <input type="file" accept=".ppm" onChange={handleLoadPPM} className="hidden" />
+            </label>
+            <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-colors">
+              <Upload size={14} /> Wczytaj JPG
+              <input type="file" accept=".jpg,.jpeg" onChange={handleLoadJPEG} className="hidden" />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           {currentImage && (
             <>
-              {/* 2. Histogram i Normalizacja */}
-              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-                <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
-                  <BarChart size={18} /> Histogram i Normalizacja
-                </h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={stretchHistogram}
-                    className="w-full px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-xs font-medium flex items-center justify-center gap-2"
-                  >
-                    <Maximize size={12} /> Rozszerzenie histogramu
-                  </button>
-                  <button
-                    onClick={equalizeHistogram}
-                    className="w-full px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-xs font-medium flex items-center justify-center gap-2"
-                  >
-                    <RefreshCcw size={12} /> Wyrównanie histogramu
-                  </button>
-                </div>
-              </div>
-
-              {/* 3. Binaryzacja */}
-              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500">
-                <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
-                  <Binary size={18} /> Binaryzacja
-                </h3>
-
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-600 block mb-1">Ręczna (Próg: {binThreshold})</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="255"
-                    value={binThreshold}
-                    onChange={(e) => setBinThreshold(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-2"
-                  />
-                  <button
-                    onClick={() => binarizeManual(binThreshold)}
-                    className="w-full px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
-                  >
-                    Binaryzuj
-                  </button>
-                </div>
-
-                <div className="mb-3 pt-2 border-t border-gray-100">
-                  <label className="text-xs font-bold text-gray-600 block mb-1">Procent czerni ({percentBlack}%)</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={percentBlack}
-                    onChange={(e) => setPercentBlack(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-2"
-                  />
-                  <button
-                    onClick={() => binarizePercentBlack(percentBlack)}
-                    className="w-full px-2 py-1 bg-indigo-500 text-white text-xs rounded hover:bg-indigo-600"
-                  >
-                    Selekcja Procentowa
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                  <button
-                    onClick={binarizeMeanIterative}
-                    className="px-1 py-1 bg-green-100 text-green-700 text-[10px] rounded hover:bg-green-200"
-                  >
-                    Iteracyjna Średnia
-                  </button>
-                  <button
-                    onClick={binarizeEntropy}
-                    className="px-1 py-1 bg-green-100 text-green-700 text-[10px] rounded hover:bg-green-200"
-                  >
-                    Entropia
-                  </button>
-                </div>
-              </div>
-
-              {/* 4. Morfologia */}
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
-                  <Layers size={18} /> Morfologia
-                </h3>
-                <div className="mb-2">
-                  <textarea
-                    value={morphKernelStr}
-                    onChange={(e) => setMorphKernelStr(e.target.value)}
-                    className="w-full px-2 py-1 border rounded text-[10px] font-mono"
-                    rows={3}
-                    placeholder="Kernel..."
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => applyMorphology("dilation")}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                  >
-                    Dylatacja
-                  </button>
-                  <button
-                    onClick={() => applyMorphology("erosion")}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                  >
-                    Erozja
-                  </button>
-                  <button
-                    onClick={() => applyMorphology("opening")}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                  >
-                    Otwarcie
-                  </button>
-                  <button
-                    onClick={() => applyMorphology("closing")}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                  >
-                    Domknięcie
-                  </button>
-                </div>
-              </div>
-
-              {/* 5. Operacje Punktowe */}
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="font-semibold mb-2 text-gray-700 text-sm flex items-center gap-2">
-                  <Sun size={18} /> Operacje Punktowe
-                </h3>
-                <div className="space-y-3">
-                  {/* Brightness & Grayscale */}
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => applyPointTransform("brightness", brightnessValue, { r: 0, g: 0, b: 0 })}
-                        className="flex-1 py-1 bg-blue-100 text-blue-700 text-xs rounded"
-                      >
-                        Jasność
-                      </button>
-                      <input
-                        type="number"
-                        value={brightnessValue}
-                        onChange={(e) => setBrightnessValue(Number(e.target.value))}
-                        className="w-12 border rounded text-xs px-1 text-center"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <button onClick={toGrayscaleAverage} className="py-1 bg-gray-200 text-xs rounded">
-                        Szary (Avg)
-                      </button>
-                      <button onClick={toGrayscaleWeighted} className="py-1 bg-gray-200 text-xs rounded">
-                        Szary (Wag)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Add */}
-                  <div>
-                    <label className="text-[10px] text-gray-500 font-bold">Dodawanie</label>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        placeholder="R"
-                        value={addColor.r}
-                        onChange={(e) => setAddColor((p) => ({ ...p, r: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="G"
-                        value={addColor.g}
-                        onChange={(e) => setAddColor((p) => ({ ...p, g: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="B"
-                        value={addColor.b}
-                        onChange={(e) => setAddColor((p) => ({ ...p, b: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <button
-                        onClick={() => applyPointTransform("add", 0, addColor)}
-                        className="px-2 bg-blue-600 text-white rounded text-xs"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Subtract */}
-                  <div>
-                    <label className="text-[10px] text-gray-500 font-bold">Odejmowanie</label>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        placeholder="R"
-                        value={subtractColor.r}
-                        onChange={(e) => setSubtractColor((p) => ({ ...p, r: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="G"
-                        value={subtractColor.g}
-                        onChange={(e) => setSubtractColor((p) => ({ ...p, g: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="B"
-                        value={subtractColor.b}
-                        onChange={(e) => setSubtractColor((p) => ({ ...p, b: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <button
-                        onClick={() => applyPointTransform("subtract", 0, subtractColor)}
-                        className="px-2 bg-blue-600 text-white rounded text-xs"
-                      >
-                        -
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Multiply */}
-                  <div>
-                    <label className="text-[10px] text-gray-500 font-bold">Mnożenie</label>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="R"
-                        value={multiplyColor.r}
-                        onChange={(e) => setMultiplyColor((p) => ({ ...p, r: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="G"
-                        value={multiplyColor.g}
-                        onChange={(e) => setMultiplyColor((p) => ({ ...p, g: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="B"
-                        value={multiplyColor.b}
-                        onChange={(e) => setMultiplyColor((p) => ({ ...p, b: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <button
-                        onClick={() => applyPointTransform("multiply", 0, multiplyColor)}
-                        className="px-2 bg-blue-600 text-white rounded text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Divide */}
-                  <div>
-                    <label className="text-[10px] text-gray-500 font-bold">Dzielenie</label>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="R"
-                        value={divideColor.r}
-                        onChange={(e) => setDivideColor((p) => ({ ...p, r: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="G"
-                        value={divideColor.g}
-                        onChange={(e) => setDivideColor((p) => ({ ...p, g: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="B"
-                        value={divideColor.b}
-                        onChange={(e) => setDivideColor((p) => ({ ...p, b: Number(e.target.value) }))}
-                        className="w-full px-1 py-1 border rounded text-xs"
-                      />
-                      <button
-                        onClick={() => applyPointTransform("divide", 0, divideColor)}
-                        className="px-2 bg-blue-600 text-white rounded text-xs"
-                      >
-                        ÷
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 6. Filtry */}
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="font-semibold mb-2 text-gray-700 text-sm flex items-center gap-2">
-                  <ArrowRightLeft size={18} /> Filtry ({filterSize}x{filterSize})
-                </h3>
+              <span className="text-xs text-gray-400 mr-2">
+                {currentImage.width} x {currentImage.height} px
+              </span>
+              <button
+                onClick={resetToOriginal}
+                className="text-gray-500 hover:text-gray-800 p-2 rounded-md hover:bg-gray-100 transition-colors"
+                title="Resetuj obraz"
+              >
+                <RotateCcw size={18} />
+              </button>
+              <div className="h-6 w-px bg-gray-200 mx-1"></div>
+              <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-500">JAKOŚĆ JPG</span>
                 <input
                   type="range"
-                  min="3"
-                  max="9"
-                  step="2"
-                  value={filterSize}
-                  onChange={(e) => setFilterSize(Number(e.target.value))}
-                  className="w-full h-1 mb-2"
+                  min="1"
+                  max="100"
+                  value={jpegQuality}
+                  onChange={(e) => setJpegQuality(Number(e.target.value))}
+                  className="w-20 h-1 accent-indigo-600 cursor-pointer"
                 />
-                <div className="grid grid-cols-2 gap-1">
-                  <button onClick={applyAverageFilter} className="py-1 bg-orange-100 text-orange-800 text-xs rounded">
-                    Średnia
-                  </button>
-                  <button onClick={applyMedianFilter} className="py-1 bg-orange-100 text-orange-800 text-xs rounded">
-                    Mediana
-                  </button>
-                  <button onClick={applySobelFilter} className="py-1 bg-orange-100 text-orange-800 text-xs rounded">
-                    Sobel
-                  </button>
-                  <button onClick={applySharpenFilter} className="py-1 bg-orange-100 text-orange-800 text-xs rounded">
-                    Wyostrz
-                  </button>
-                  {/* PRZYWRÓCONE: Przycisk Gaussian Blur */}
-                  <button
-                    onClick={applyGaussianBlur}
-                    className="py-1 bg-orange-100 text-orange-800 text-xs rounded col-span-2"
-                  >
-                    Gaussian Blur
-                  </button>
-                </div>
-                <div className="mt-2 border-t pt-2">
-                  <textarea
-                    value={customMask}
-                    onChange={(e) => setCustomMask(e.target.value)}
-                    className="w-full px-2 py-1 border rounded text-[10px] font-mono mb-1"
-                    rows={2}
-                  />
-                  <button
-                    onClick={applyCustomMask}
-                    className="w-full py-1 bg-orange-200 text-orange-900 text-xs rounded"
-                  >
-                    Własna maska
-                  </button>
-                </div>
+                <span className="text-[10px] w-6 text-right">{jpegQuality}%</span>
               </div>
-
-              {/* 7. Eksport */}
-              <div className="bg-white p-4 rounded-lg shadow">
-                {/* PRZYWRÓCONE: Suwak Jakości JPEG */}
-                <div className="mb-2">
-                  <label className="text-[10px] text-gray-600 block mb-1">Jakość JPEG: {jpegQuality}%</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={jpegQuality}
-                    onChange={(e) => setJpegQuality(Number(e.target.value))}
-                    className="w-full h-1"
-                  />
-                </div>
-                <button
-                  onClick={handleSaveJPEG}
-                  className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                  <Download size={16} /> Zapisz JPEG
-                </button>
-              </div>
+              <button
+                onClick={handleSaveJPEG}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <Download size={14} /> Zapisz
+              </button>
             </>
           )}
         </div>
+      </header>
 
-        {/* PRAWA KOLUMNA - PODGLĄD + HISTOGRAM */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Główny Canvas */}
-          <div className="bg-white p-4 rounded-lg shadow h-fit">
-            <h3 className="font-semibold text-gray-700 mb-4">Podgląd obrazu</h3>
-            {loading && <div className="flex items-center justify-center h-64 text-gray-500">Wczytywanie...</div>}
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+      {/* 2. GŁÓWNA ZAWARTOŚĆ */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEWY PANEL - NARZĘDZIA */}
+        <aside className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="p-5">
+            {!currentImage ? (
+              <div className="text-center text-gray-400 mt-10 text-sm">Wczytaj obraz, aby zobaczyć narzędzia.</div>
+            ) : (
+              <>
+                {/* Filtry */}
+                <PanelSection title="Filtry Splotowe" icon={ArrowRightLeft}>
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="text-gray-600">Rozmiar maski:</span>
+                    <span className="font-mono bg-gray-100 px-2 rounded">
+                      {filterSize}x{filterSize}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="3"
+                    max="9"
+                    step="2"
+                    value={filterSize}
+                    onChange={(e) => setFilterSize(Number(e.target.value))}
+                    className="w-full h-1.5 accent-indigo-600 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-3"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <ActionButton variant="secondary" onClick={applyAverageFilter}>
+                      Średnia
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={applyMedianFilter}>
+                      Mediana
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={applySobelFilter}>
+                      Sobel
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={applySharpenFilter}>
+                      Wyostrz
+                    </ActionButton>
+                    <div className="col-span-2">
+                      <ActionButton variant="secondary" onClick={applyGaussianBlur}>
+                        Gaussian Blur (5x5)
+                      </ActionButton>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
+                    <p className="text-[10px] font-bold text-gray-400 mb-1">WŁASNA MASKA</p>
+                    <textarea
+                      value={customMask}
+                      onChange={(e) => setCustomMask(e.target.value)}
+                      className="w-full p-2 border border-gray-200 rounded-md text-[10px] font-mono mb-2 bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none"
+                      rows={3}
+                    />
+                    <ActionButton variant="outline" onClick={applyCustomMask}>
+                      Zastosuj Maskę
+                    </ActionButton>
+                  </div>
+                </PanelSection>
+
+                {/* Morfologia */}
+                <PanelSection title="Morfologia" icon={Layers}>
+                  <div className="mb-2">
+                    <p className="text-[10px] font-bold text-gray-400 mb-1">KERNEL (0, 1)</p>
+                    <textarea
+                      value={morphKernelStr}
+                      onChange={(e) => setMorphKernelStr(e.target.value)}
+                      className="w-full p-2 border border-gray-200 rounded-md text-[10px] font-mono bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <ActionButton variant="secondary" onClick={() => applyMorphology("dilation")}>
+                      Dylatacja
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={() => applyMorphology("erosion")}>
+                      Erozja
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={() => applyMorphology("opening")}>
+                      Otwarcie
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={() => applyMorphology("closing")}>
+                      Domknięcie
+                    </ActionButton>
+                  </div>
+                </PanelSection>
+
+                {/* Operacje Punktowe */}
+                <PanelSection title="Operacje Punktowe" icon={Sun}>
+                  <div className="space-y-4">
+                    {/* Jasność */}
+                    <div className="bg-gray-50 p-2 rounded-md border border-gray-100">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-bold text-gray-500">JASNOŚĆ</label>
+                        <span className="text-[10px] font-mono">{brightnessValue}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={brightnessValue}
+                        onChange={(e) => setBrightnessValue(Number(e.target.value))}
+                        className="w-full h-1.5 accent-indigo-600 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-2"
+                      />
+                      <ActionButton
+                        variant="primary"
+                        onClick={() => applyPointTransform("brightness", brightnessValue, { r: 0, g: 0, b: 0 })}
+                      >
+                        Zastosuj
+                      </ActionButton>
+                    </div>
+
+                    {/* Skala Szarości */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <ActionButton variant="outline" onClick={toGrayscaleAverage}>
+                        Szary (Avg)
+                      </ActionButton>
+                      <ActionButton variant="outline" onClick={toGrayscaleWeighted}>
+                        Szary (Wag)
+                      </ActionButton>
+                    </div>
+
+                    {/* RGB Ops */}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-1 items-center">
+                        <span className="text-[10px] font-bold text-gray-400">DODAJ</span>
+                        <RGBInput label="R" value={addColor.r} onChange={(v) => setAddColor((p) => ({ ...p, r: v }))} />
+                        <RGBInput label="G" value={addColor.g} onChange={(v) => setAddColor((p) => ({ ...p, g: v }))} />
+                        <RGBInput label="B" value={addColor.b} onChange={(v) => setAddColor((p) => ({ ...p, b: v }))} />
+                      </div>
+                      <ActionButton variant="secondary" onClick={() => applyPointTransform("add", 0, addColor)}>
+                        +
+                      </ActionButton>
+
+                      <div className="border-t border-gray-100 my-2"></div>
+
+                      <div className="grid grid-cols-4 gap-1 items-center">
+                        <span className="text-[10px] font-bold text-gray-400">ODEJMIJ</span>
+                        <RGBInput
+                          label="R"
+                          value={subtractColor.r}
+                          onChange={(v) => setSubtractColor((p) => ({ ...p, r: v }))}
+                        />
+                        <RGBInput
+                          label="G"
+                          value={subtractColor.g}
+                          onChange={(v) => setSubtractColor((p) => ({ ...p, g: v }))}
+                        />
+                        <RGBInput
+                          label="B"
+                          value={subtractColor.b}
+                          onChange={(v) => setSubtractColor((p) => ({ ...p, b: v }))}
+                        />
+                      </div>
+                      <ActionButton
+                        variant="secondary"
+                        onClick={() => applyPointTransform("subtract", 0, subtractColor)}
+                      >
+                        -
+                      </ActionButton>
+
+                      <div className="border-t border-gray-100 my-2"></div>
+
+                      <div className="grid grid-cols-4 gap-1 items-center">
+                        <span className="text-[10px] font-bold text-gray-400">MNOŻENIE</span>
+                        <RGBInput
+                          label="R"
+                          value={multiplyColor.r}
+                          onChange={(v) => setMultiplyColor((p) => ({ ...p, r: v }))}
+                        />
+                        <RGBInput
+                          label="G"
+                          value={multiplyColor.g}
+                          onChange={(v) => setMultiplyColor((p) => ({ ...p, g: v }))}
+                        />
+                        <RGBInput
+                          label="B"
+                          value={multiplyColor.b}
+                          onChange={(v) => setMultiplyColor((p) => ({ ...p, b: v }))}
+                        />
+                      </div>
+                      <ActionButton
+                        variant="secondary"
+                        onClick={() => applyPointTransform("multiply", 0, multiplyColor)}
+                      >
+                        ×
+                      </ActionButton>
+
+                      <div className="border-t border-gray-100 my-2"></div>
+
+                      {/* PRZYWRÓCONE UI DLA DZIELENIA */}
+                      <div className="grid grid-cols-4 gap-1 items-center">
+                        <span className="text-[10px] font-bold text-gray-400">DZIELENIE</span>
+                        <RGBInput
+                          label="R"
+                          value={divideColor.r}
+                          onChange={(v) => setDivideColor((p) => ({ ...p, r: v }))}
+                        />
+                        <RGBInput
+                          label="G"
+                          value={divideColor.g}
+                          onChange={(v) => setDivideColor((p) => ({ ...p, g: v }))}
+                        />
+                        <RGBInput
+                          label="B"
+                          value={divideColor.b}
+                          onChange={(v) => setDivideColor((p) => ({ ...p, b: v }))}
+                        />
+                      </div>
+                      <ActionButton variant="secondary" onClick={() => applyPointTransform("divide", 0, divideColor)}>
+                        ÷
+                      </ActionButton>
+                    </div>
+                  </div>
+                </PanelSection>
+              </>
             )}
-
-            {!loading && !currentImage && !error && (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400 border-2 border-dashed rounded-lg">
-                <Upload size={48} className="mb-2 opacity-50" />
-                <p>Wczytaj obraz PPM lub JPEG</p>
-              </div>
-            )}
-
-            <div className="overflow-auto max-h-[600px] border border-gray-200 rounded bg-gray-50 flex items-start justify-center">
-              <canvas ref={canvasRef} className="max-w-none shadow-sm" />
-            </div>
           </div>
+        </aside>
 
-          {/* Histogram Canvas */}
-          {currentImage && (
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-700">Histogram jasności</h3>
-                {autoThreshold !== null && (
-                  <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Auto Próg: {autoThreshold}</span>
-                )}
+        {/* ŚRODEK - CANVAS */}
+        <main className="flex-1 bg-gray-900 relative overflow-auto flex items-center justify-center p-8 shadow-inner">
+          {loading && <div className="text-white text-lg animate-pulse">Przetwarzanie...</div>}
+
+          {!loading && !currentImage && !error && (
+            <div className="text-gray-500 flex flex-col items-center gap-4">
+              <div className="bg-gray-800 p-6 rounded-full">
+                <Move size={48} className="opacity-50" />
               </div>
-              <div className="border border-gray-200 rounded p-2 bg-gray-50">
-                <canvas ref={histogramRef} className="w-full h-64" />
-              </div>
+              <p>Przestrzeń robocza pusta</p>
             </div>
           )}
-        </div>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500 text-red-200 px-6 py-4 rounded-lg backdrop-blur-sm max-w-md">
+              <strong className="block mb-1 text-red-100">Wystąpił błąd</strong>
+              {error}
+            </div>
+          )}
+
+          <div className={`transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}>
+            <canvas ref={canvasRef} className="max-w-none" style={{ imageRendering: "pixelated" }} />
+          </div>
+        </main>
+
+        {/* PRAWY PANEL - ANALIZA */}
+        <aside className="w-80 bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="p-5">
+            {!currentImage ? (
+              <div className="text-center text-gray-400 mt-10 text-sm">Brak danych do analizy.</div>
+            ) : (
+              <>
+                {/* Histogram */}
+                <PanelSection title="Histogram" icon={BarChart}>
+                  <div className="bg-gray-50 border border-gray-100 rounded-lg p-2 mb-3">
+                    <canvas ref={histogramRef} className="w-full h-40" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={stretchHistogram}
+                      className="flex flex-col items-center justify-center p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md transition-colors text-xs font-medium"
+                    >
+                      <Maximize size={16} className="mb-1" /> Rozszerz
+                    </button>
+                    <button
+                      onClick={equalizeHistogram}
+                      className="flex flex-col items-center justify-center p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md transition-colors text-xs font-medium"
+                    >
+                      <RefreshCcw size={16} className="mb-1" /> Wyrównaj
+                    </button>
+                  </div>
+                </PanelSection>
+
+                {/* Binaryzacja */}
+                <PanelSection title="Binaryzacja" icon={Binary}>
+                  <div className="space-y-4">
+                    {/* Manual */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-bold text-gray-500">PRÓG (MANUALNY)</label>
+                        <span className="text-[10px] font-mono bg-gray-100 px-1 rounded">{binThreshold}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="255"
+                        value={binThreshold}
+                        onChange={(e) => setBinThreshold(Number(e.target.value))}
+                        className="w-full h-1.5 accent-indigo-600 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-2"
+                      />
+                      <ActionButton onClick={() => binarizeManual(binThreshold)}>Binaryzuj (Próg)</ActionButton>
+                    </div>
+
+                    {/* Procent */}
+                    <div className="pt-3 border-t border-dashed border-gray-200">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-bold text-gray-500">% CZERNI</label>
+                        <span className="text-[10px] font-mono bg-gray-100 px-1 rounded">{percentBlack}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={percentBlack}
+                        onChange={(e) => setPercentBlack(Number(e.target.value))}
+                        className="w-full h-1.5 accent-indigo-600 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-2"
+                      />
+                      <ActionButton variant="outline" onClick={() => binarizePercentBlack(percentBlack)}>
+                        Selekcja %
+                      </ActionButton>
+                    </div>
+
+                    {/* Automaty */}
+                    <div className="pt-3 border-t border-dashed border-gray-200">
+                      <label className="text-[10px] font-bold text-gray-500 block mb-2">ALGORYTMY AUTO</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <ActionButton variant="secondary" onClick={binarizeMeanIterative}>
+                          Iter. Średnia
+                        </ActionButton>
+                        <ActionButton variant="secondary" onClick={binarizeEntropy}>
+                          Entropia
+                        </ActionButton>
+                      </div>
+                    </div>
+                  </div>
+                </PanelSection>
+
+                <div className="mt-auto pt-6 text-center">
+                  <p className="text-[10px] text-gray-300">PPM Editor v2.0</p>
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );
 };
 
-export default Task2Combined;
+export default Task2PPM;
