@@ -5,7 +5,7 @@ import Task2PPM from "./components/Task2PPM";
 import Task3ColorSpaces from "./components/Task3ColorSpaces";
 
 const App = () => {
-  const [activeTask, setActiveTask] = useState<number>(2);
+  const [activeTask, setActiveTask] = useState<number>(1);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   const tasks = [

@@ -1,72 +1,46 @@
-# GraphicsLab - Laboratorium Grafiki Komputerowej
+# GraphicsLab
 
-Aplikacja webowa do prostych operacji graficznych, stworzona przy użyciu React, TypeScript i Vite. Umożliwia rysowanie prymitywów oraz wczytywanie, wyświetlanie i zapisywanie obrazów w formacie PPM.
+Interaktywne laboratorium grafiki komputerowej — nowoczesne narzędzia edukacyjne do przetwarzania obrazów i rysowania prymitywów. Projekt pokazuje praktyczne techniki z przedmiotu Grafika Komputerowa: parsowanie plików PPM (P3/P6, także 16-bit), filtrowanie, binaryzację, przekształcenia punktowe, morfologię i proste narzędzia wektorowe.
 
-![Ekran główny](assets/home.png)
+![Edytor PPM - podgląd zakładki](assets/ppm.png)
 
-## Funkcjonalności
+![Screenshot (przykładowy)](assets/home.png)
 
-Aplikacja podzielona jest na dwa główne moduły (zadania):
+Projekt studencki zrealizowany w ramach przedmiotu **Grafika komputerowa**.
 
-### Zadanie 1: Prymitywy
+**Zobacz demo na żywo**: [https://saikeno.github.io/graphics-lab/](https://saikeno.github.io/graphics-lab/)
 
-Moduł ten umożliwia tworzenie i manipulowanie prostymi kształtami geometrycznymi na kanwie.
+**Najważniejsze cechy:**
 
-- **Rysowanie:** Możliwość rysowania linii, prostokątów i okręgów.
-- **Narzędzia:** Dostępne narzędzia to rysowanie, zaznaczanie, przesuwanie i zmiana rozmiaru.
-- **Personalizacja:** Użytkownik może wybrać kolor i grubość linii dla każdego kształtu.
-- **Precyzja:** Kształty można dodawać i modyfikować zarówno poprzez interakcję z kanwą, jak i przez wprowadzanie dokładnych współrzędnych.
-- **Zarządzanie:**
-  - Zapisywanie stanu kanwy (wszystkich kształtów) do pliku JSON.
-  - Wczytywanie kształtów z pliku JSON.
-  - Całkowite czyszczenie kanwy.
+- **Edytor PPM**: wczytywanie P3/P6 (ASCII i binarny), obsługa 16-bitowych wartości, konwersja do wewnętrznego formatu RGBA.
+- **Operacje punktowe**: dodawanie/odejmowanie, mnożenie/dzielenie składowych, regulacja jasności.
+- **Histogramy**: obliczanie i wykres histogramu, dopasowanie kontrastu, wyrównanie histogramu.
+- **Binaryzacja**: metody progowania — ręczne, procent czerni, iteracyjne średnie, entropia (wyszukiwanie progów).
+- **Filtry i morfologia**: konwolucje (rozmycia, wyostrzanie, Sobel), filtr medianowy, operacje morfologiczne (erozja, dylatacja, otwarcie, zamknięcie), hit-or-miss.
+- **Rysowanie prymitywów**: linie, prostokąty, koła z obsługą zaznaczania i edycji.
 
-### Zadanie 2: Format PPM
+**Repozytorium zawiera:**
 
-Moduł ten służy do pracy z obrazami w formacie PPM (Portable Pixmap).
+- `src/` — aplikacja React + TypeScript (interfejs, komponenty laboratoriów)
+- `src/components/Task2PPM.tsx` — zaawansowany edytor PPM (histogramy, filtry, morfologia)
+- `src/utils/parsePPM.ts` — bezpieczny parser PPM obsługujący P3, P6 i 16-bitowe komponenty
+- `testing/` — przykładowe pliki PPM do testów i demonstracji
 
-- **Wczytywanie:** Obsługa wczytywania obrazów w formatach PPM (zarówno P3 - ASCII, jak i P6 - binarny) oraz JPEG.
-- **Wyświetlanie:** Podgląd wczytanego obrazu na kanwie.
-- **Informacje:** Wyświetlanie podstawowych informacji o obrazie (format, wymiary, maksymalna wartość koloru).
-- **Zapisywanie:**
-  - Eksport obrazu do formatu PPM (P6).
-  - Eksport obrazu do formatu JPEG z możliwością regulacji jakości.
+**Technologie**
 
-## Technologie
+- Framework: `React` + `TypeScript`
+- Bundler: `Vite`
+- Stylowanie: `Tailwind CSS`
+- Grafika 3D (opcjonalnie): `three` (w zależności od ćwiczeń)
 
-- **Framework:** [React](https://react.dev/)
-- **Język:** [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool:** [Vite](https://vitejs.dev/)
-- **Stylowanie:** [Tailwind CSS](https://tailwindcss.com/)
-- **Ikony:** [Lucide React](https://lucide.dev/guide/packages/lucide-react)
+## Szybki przewodnik po funkcjach
 
-## Instalacja i uruchomienie
+- Wczytywanie obrazu: przyciski "Wczytaj PPM" / "Wczytaj JPG". Parser obsługuje komentarze i różne warianty nagłówków.
+- Histogram: automatyczny wykres, możliwość wyznaczenia progu (binaryzacja) i zaznaczenia go na wykresie.
+- Filtry: wybierz gotowy filtr (średni, medianowy, Sobel, wyostrzanie) lub wprowadź własną maskę konwolucyjną.
+- Morfologia: edytuj kernel w polu tekstowym (np. `0,1,0\n1,1,1\n0,1,0`) i zastosuj erozję/dylatację lub operacje otwarcia/zamknięcia.
+- Eksport: zapisz wynik jako JPEG (regulacja jakości) lub wyeksportuj jako PPM.
 
-### Kroki instalacji
+## Przykładowe pliki testowe
 
-1.  **Sklonuj repozytorium:**
-
-    ```bash
-    git clone 'https://github.com/SaikeNO/graphics-lab.git'
-    cd graphics-lab
-    ```
-
-2.  **Zainstaluj zależności:**
-
-    ```bash
-    npm install
-    ```
-
-3.  Uruchom serwer deweloperski:
-    ```bash
-    npm run dev
-    ```
-
-Aplikacja będzie dostępna pod adresem [http://localhost:5173](http://localhost:5173).
-
-## Dostępne skrypty
-
-- `npm run dev`: Uruchamia aplikację w trybie deweloperskim.
-- `npm run build`: Kompiluje i buduje aplikację do wersji produkcyjnej.
-- `npm run lint`: Uruchamia lintera w celu sprawdzenia jakości kodu.
-- `npm run preview`: Uruchamia lokalny serwer do podglądu wersji produkcyjnej.
+W katalogu `testing/` znajdują się przykładowe pliki PPM (P3/P6, różne wielkości i komentarze). Użyj ich do sprawdzenia parsera i algorytmów przetwarzania.
